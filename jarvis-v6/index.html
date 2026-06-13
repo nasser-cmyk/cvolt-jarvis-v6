@@ -145,6 +145,9 @@ canvas#bgOverlay{z-index:3;pointer-events:none}
   </div>
 </div>
 
+<!-- ============ IRON MAN BOOT MUSIC (YouTube iframe, hidden) ============ -->
+<iframe id="bootMusic" width="0" height="0" style="position:absolute;left:-9999px;top:-9999px;opacity:0;pointer-events:none" allow="autoplay; encrypted-media"></iframe>
+
 <!-- ============ FULL-SCREEN CHART OVERLAY ============ -->
 <div id="chartFull">
   <div class="chartFull-inner">
@@ -201,6 +204,7 @@ canvas#bgOverlay{z-index:3;pointer-events:none}
   <div class="top-actions">
     <button id="wakeBtn" class="icon-btn" onclick="setWakeMode(!wakeMode)" title="Wake-word always-on (Say: Hey JARVIS)" style="width:auto;padding:0 12px;font-size:10px;letter-spacing:2px">WAKE: OFF</button>
     <button id="googleBtn" class="icon-btn" onclick="googleAction()" title="Connect Gmail + Calendar" style="width:auto;padding:0 12px;font-size:10px;letter-spacing:2px">GOOGLE: OFF</button>
+    <button id="spotifyBtn" class="icon-btn" onclick="spotifyConnect()" title="Connect Spotify for voice playback control" style="width:auto;padding:0 12px;font-size:10px;letter-spacing:2px">SPOTIFY: OFF</button>
     <button id="installBtn" class="icon-btn" onclick="installPWA()" title="Install as app" style="width:auto;padding:0 12px;font-size:10px;letter-spacing:2px;display:none">INSTALL</button>
     <button class="icon-btn" onclick="pinKnowledge()" title="Pin permanent knowledge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg></button>
     <button class="icon-btn" onclick="document.getElementById('fileInput').click()" title="Upload file (PDF / txt / md / csv) for JARVIS to read"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></button>
@@ -272,7 +276,7 @@ const KEY_APIKEY='cvolt_apikey', KEY_ELEVEN='cvolt_elevenkey', KEY_HIST='cvolt_h
 const ELEVEN_VOICE=localStorage.getItem('cvolt_voiceid')||'JBFqnCBsd6RMkjVDRZzb';
 // turbo_v2_5 = most reliable, low-latency, never distorts
 const ELEVEN_MODEL=localStorage.getItem('cvolt_voicemodel')||'eleven_turbo_v2_5';
-const VOICE_RATE=1.0;  // no playback rate tweak — eliminates artifacts
+const VOICE_RATE=parseFloat(localStorage.getItem('cvolt_voicerate'))||1.15;  // 15% faster, snappier delivery
 let apiKey=localStorage.getItem(KEY_APIKEY)||'';
 let elevenKey=localStorage.getItem(KEY_ELEVEN)||'';
 let history=[]; try{history=JSON.parse(localStorage.getItem(KEY_HIST)||'[]')}catch(_){}
@@ -531,7 +535,7 @@ function fpsLoop(){frames++; const n=performance.now(); if(n-lastFps>=1000){docu
 fpsLoop();
 
 // ========== HISTORY ==========
-function saveHistory(){localStorage.setItem(KEY_HIST,JSON.stringify(history.slice(-40))); document.getElementById('hudMem').textContent=`${history.length} EXCHANGES //`}
+function saveHistory(){localStorage.setItem(KEY_HIST,JSON.stringify(history.slice(-100))); document.getElementById('hudMem').textContent=`${history.length} EXCHANGES //`}
 saveHistory();
 
 // ========== SYSTEM PROMPT ==========
@@ -606,7 +610,7 @@ async function askClaudeStream(text, onToken){
   const pinned=localStorage.getItem('cvolt_knowledge')||'';
   const msgs=[];
   if(pinned){msgs.push({role:'user',content:'PINNED CONTEXT (always-available knowledge):\n'+pinned}); msgs.push({role:'assistant',content:'Noted, sir.'})}
-  for(const m of history.slice(-16)) msgs.push({role:m.role==='user'?'user':'assistant',content:m.text});
+  for(const m of history.slice(-30)) msgs.push({role:m.role==='user'?'user':'assistant',content:m.text});
   msgs.push({role:'user',content:text});
   if(!apiKey) {onToken(demoReply(text),true); return demoReply(text);}
   const useWeb = WEB_INTENT.test(text);
@@ -667,7 +671,7 @@ async function askClaude(text){
   const pinned=localStorage.getItem('cvolt_knowledge')||'';
   const msgs=[];
   if(pinned){msgs.push({role:'user',content:'PINNED CONTEXT:\n'+pinned}); msgs.push({role:'assistant',content:'Noted, sir.'})}
-  for(const m of history.slice(-16)) msgs.push({role:m.role==='user'?'user':'assistant',content:m.text});
+  for(const m of history.slice(-30)) msgs.push({role:m.role==='user'?'user':'assistant',content:m.text});
   msgs.push({role:'user',content:text});
   if(!apiKey) return demoReply(text);
   const model = DEEP_INTENT.test(text) ? 'claude-sonnet-4-5' : 'claude-haiku-4-5';
@@ -735,9 +739,9 @@ async function speak(text){
       const blob=await r.blob(), url=URL.createObjectURL(blob);
       const audio=new Audio(url); currentAudio=audio;
       audio.playbackRate=VOICE_RATE;  // crisper, snappier delivery
-      audio.onplay=()=>{setState('speaking'); shock()};
-      audio.onended=()=>{setState(null); URL.revokeObjectURL(url); currentAudio=null; if(wakeMode) startContinuousListen()};
-      audio.onerror=()=>{setState(null); URL.revokeObjectURL(url); currentAudio=null; if(wakeMode) startContinuousListen()};
+      audio.onplay=()=>{setState('speaking'); shock(); startBargeInListen()};
+      audio.onended=()=>{setState(null); URL.revokeObjectURL(url); currentAudio=null; stopBargeInListen(); if(wakeMode) startContinuousListen()};
+      audio.onerror=()=>{setState(null); URL.revokeObjectURL(url); currentAudio=null; stopBargeInListen(); if(wakeMode) startContinuousListen()};
       audio.play(); return;
     }catch(e){console.error('ElevenLabs failed',e)}
   }
@@ -799,6 +803,69 @@ function googleAction(){
   } else {
     window.location.href='/api/auth/google';
   }
+}
+
+// ========== SPOTIFY CONTROL ==========
+let spotifyConnected=false;
+async function checkSpotifyStatus(){
+  try{
+    const r=await fetch('/api/spotify/status',{credentials:'include'});
+    if(!r.ok) return;
+    const d=await r.json();
+    spotifyConnected=!!d.connected;
+  }catch(_){}
+}
+function spotifyConnect(){window.location.href='/api/spotify/auth'}
+
+async function trySpotifyIntent(text){
+  const t=text.toLowerCase().trim();
+  // Pause / stop music
+  if(/^(pause|stop) (music|song|track|spotify|the music)\b/i.test(t)||/^(pause|stop)$/i.test(t)){
+    if(!spotifyConnected) return null;
+    try{await fetch('/api/spotify/control?action=pause',{credentials:'include',method:'POST'}); return 'Paused, sir.'}
+    catch(_){return null}
+  }
+  // Next track
+  if(/\b(next|skip|next (song|track|one))\b/i.test(t)){
+    if(!spotifyConnected) return null;
+    try{await fetch('/api/spotify/control?action=next',{credentials:'include',method:'POST'}); return 'Skipping ahead, sir.'}
+    catch(_){return null}
+  }
+  // Previous track
+  if(/\b(previous|back|last (song|track)|go back)\b/i.test(t)){
+    if(!spotifyConnected) return null;
+    try{await fetch('/api/spotify/control?action=previous',{credentials:'include',method:'POST'}); return 'Back one, sir.'}
+    catch(_){return null}
+  }
+  // Volume up/down
+  const volM=t.match(/^(?:set )?volume(?: to)? (\d+)/i);
+  if(volM&&spotifyConnected){
+    const v=parseInt(volM[1]);
+    try{await fetch('/api/spotify/control?action=volume&level='+v,{credentials:'include',method:'POST'}); return `Volume at ${v} percent, sir.`}
+    catch(_){return null}
+  }
+  // Resume
+  if(/^(resume|continue|play (it|music)|unpause)$/i.test(t)&&spotifyConnected){
+    try{await fetch('/api/spotify/play',{credentials:'include',method:'POST'}); return 'Resuming, sir.'}
+    catch(_){return null}
+  }
+  // Play [song] — real Spotify playback (not search URL)
+  const playM=t.match(/^(?:please )?play (.+?)(?:\s+on spotify)?\s*[.?!]?$/i);
+  if(playM&&spotifyConnected){
+    const q=playM[1].trim();
+    // Skip "youtube" specific requests — they fall through to launcher
+    if(/youtube/i.test(text)) return null;
+    try{
+      const r=await fetch('/api/spotify/play?q='+encodeURIComponent(q),{credentials:'include',method:'POST'});
+      if(!r.ok){
+        if(r.status===404) return `Couldn't find "${q}" on Spotify, sir.`;
+        return null;
+      }
+      const d=await r.json();
+      return d.track ? `Playing ${d.track.name} by ${d.track.artist}, sir.` : `Playing ${q}, sir.`;
+    }catch(_){return null}
+  }
+  return null;
 }
 
 async function tryGoogleIntent(text){
@@ -892,6 +959,75 @@ async function runBriefing(){
     setState(null);
     return reply;
   }catch(e){setState(null); return 'Briefing failed: '+e.message}
+}
+
+// ========== VOICE BARGE-IN — listen during JARVIS speaking, interrupt on user voice ==========
+let bargeStream=null, bargeCtx=null, bargeAnalyser=null, bargeActive=false;
+async function startBargeInListen(){
+  if(bargeActive) return;
+  try{
+    bargeStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+    bargeCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const src=bargeCtx.createMediaStreamSource(bargeStream);
+    bargeAnalyser=bargeCtx.createAnalyser(); bargeAnalyser.fftSize=512; bargeAnalyser.smoothingTimeConstant=0.7;
+    src.connect(bargeAnalyser);
+    bargeActive=true;
+    const buf=new Uint8Array(bargeAnalyser.frequencyBinCount);
+    let highCount=0;
+    const tick=()=>{
+      if(!bargeActive) return;
+      bargeAnalyser.getByteTimeDomainData(buf);
+      let sum=0; for(let i=0;i<buf.length;i++){const d=buf[i]-128; sum+=d*d}
+      const rms=Math.sqrt(sum/buf.length);
+      if(rms>10){  // threshold: clearly voice, not background
+        highCount++;
+        if(highCount>=4){  // 4 consecutive loud samples ≈ 60ms — definite speech
+          // BARGE IN: stop JARVIS immediately
+          speechSynthesis.cancel();
+          if(currentAudio){try{currentAudio.pause();currentAudio.currentTime=0}catch(_){}}
+          setState(null);
+          stopBargeInListen();
+          // Trigger mic listen for next command
+          setTimeout(()=>{if(elevenKey)startScribeRecording(); else startBrowserCapture()},150);
+          return;
+        }
+      } else highCount=0;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }catch(e){console.warn('barge-in setup failed',e); bargeActive=false}
+}
+function stopBargeInListen(){
+  bargeActive=false;
+  try{bargeStream&&bargeStream.getTracks().forEach(t=>t.stop())}catch(_){}
+  try{bargeCtx&&bargeCtx.close()}catch(_){}
+  bargeStream=null; bargeCtx=null; bargeAnalyser=null;
+}
+
+// ========== AUTO-REMEMBER — when user says "remember X" or "note that X" ==========
+function tryRemember(text){
+  const m=text.match(/^(?:please\s+)?(?:jarvis,?\s+)?(?:remember(?:\s+that)?|note(?:\s+that)?|don'?t forget|from now on|always remember|never forget)\s+(.+?)[.!?]?\s*$/i);
+  if(!m) return null;
+  const fact=m[1].trim();
+  if(fact.length<3) return null;
+  const cur=localStorage.getItem('cvolt_knowledge')||'';
+  const today=new Date().toLocaleDateString('en-GB');
+  const newFact=`[${today}] ${fact}`;
+  const updated=cur ? cur+'\n'+newFact : newFact;
+  localStorage.setItem('cvolt_knowledge',updated);
+  return {reply:`Noted, sir. "${fact}" — saved to permanent memory.`,fact:fact};
+}
+
+// ========== BARGE-IN — interrupt JARVIS by saying stop/quiet/wait ==========
+function tryInterrupt(text){
+  const t=text.toLowerCase().trim();
+  if(/^(stop|quiet|wait|shut up|pause|hold on|enough|silence|hold|stop talking|never mind|nevermind)[!.?]?$/i.test(t)){
+    speechSynthesis.cancel();
+    if(currentAudio){try{currentAudio.pause();currentAudio.currentTime=0}catch(_){}}
+    setState(null);
+    return {reply:'Standing by, sir.'};
+  }
+  return null;
 }
 
 function tryLocal(text){
@@ -1378,6 +1514,15 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElement
 
 async function sendMessage(text){
   addMsg('user',text);
+  // Barge-in / interrupt
+  const stop=tryInterrupt(text);
+  if(stop){addMsg('jarvis',stop.reply); return}
+  // Auto-remember
+  const mem=tryRemember(text);
+  if(mem){addMsg('jarvis',mem.reply); speak(mem.reply); return}
+  // Spotify control
+  const spot=await trySpotifyIntent(text);
+  if(spot){addMsg('jarvis',spot); speak(spot); return}
   // Google intents — gmail, calendar, briefing
   const goog=await tryGoogleIntent(text);
   if(goog){addMsg('jarvis',goog); speak(goog); return}
@@ -1413,6 +1558,20 @@ function sendText(){const inp=document.getElementById('textInput'); const t=inp.
 document.getElementById('textInput').addEventListener('keydown',e=>{if(e.key==='Enter') sendText()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.speaking){speechSynthesis.cancel(); if(currentAudio)try{currentAudio.pause()}catch(_){} setState(null)}});
 
+// Default Iron Man theme — Black Sabbath. Override in localStorage.cvolt_bootmusic with a YouTube video ID
+const BOOT_MUSIC_ID=localStorage.getItem('cvolt_bootmusic')||'5s7_WbiR79E';
+
+function playBootMusic(){
+  if(localStorage.getItem('cvolt_bootmusic_off')==='1') return;
+  try{
+    const iframe=document.getElementById('bootMusic');
+    // Play 30 seconds starting at the iconic riff
+    iframe.src=`https://www.youtube.com/embed/${BOOT_MUSIC_ID}?autoplay=1&start=8&end=38&controls=0&disablekb=1`;
+    // Stop after 32 seconds to avoid lingering audio
+    setTimeout(()=>{try{iframe.src=''}catch(_){}}, 33000);
+  }catch(e){console.warn('Boot music failed',e)}
+}
+
 function saveKeyAndStart(){
   const k=document.getElementById('apikey').value.trim();
   const ek=document.getElementById('elevenkey').value.trim();
@@ -1420,6 +1579,7 @@ function saveKeyAndStart(){
   if(ek){elevenKey=ek; localStorage.setItem(KEY_ELEVEN,ek); updateHudVoice()}
   document.getElementById('modal').classList.add('hidden');
   playBootSequence();
+  playBootMusic();
   setTimeout(()=>speak('Good day, sir. JARVIS online. How may I assist?'),2400);
 }
 function startWithoutKey(){document.getElementById('modal').classList.add('hidden'); playBootSequence(); setTimeout(()=>speak('Good day, sir. Demo mode active.'),2400)}
@@ -1523,8 +1683,7 @@ async function uploadClone(name){
 
 if(apiKey||localStorage.getItem('cvolt_seen')) document.getElementById('modal').classList.add('hidden');
 if(apiKey||localStorage.getItem('cvolt_seen')) {
-  // Play boot for returning users on load (after user interaction)
-  document.addEventListener('click',()=>{ if(!window._booted){window._booted=true; playBootSequence()} },{once:true});
+  document.addEventListener('click',()=>{ if(!window._booted){window._booted=true; playBootSequence(); playBootMusic()} },{once:true});
 }
 localStorage.setItem('cvolt_seen','1');
 updateHudVoice(); updateWakeHud();
@@ -1538,7 +1697,18 @@ checkGoogleStatus().then(()=>{
     setTimeout(()=>checkGoogleStatus(), 800);
   }
 });
+checkSpotifyStatus().then(()=>{
+  if(new URLSearchParams(location.search).get('spotify')==='1'){
+    addMsg('jarvis','Spotify connected, sir. Music control is live.');
+    window.history.replaceState({}, '', location.pathname);
+    setTimeout(()=>speak('Spotify connected, sir.'),500);
+    setTimeout(()=>checkSpotifyStatus(), 800);
+  }
+  const sb=document.getElementById('spotifyBtn');
+  if(sb&&spotifyConnected){sb.textContent='SPOTIFY: ON'; sb.style.color='#4ADE80'}
+});
 setInterval(checkGoogleStatus, 5*60*1000);
+setInterval(checkSpotifyStatus, 5*60*1000);
 </script>
 </body>
 </html>
