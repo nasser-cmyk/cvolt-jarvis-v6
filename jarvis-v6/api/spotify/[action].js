@@ -1,0 +1,82 @@
+import { buildSpotifyAuthUrl, spotifyExchangeCode, getSpotifyToken, spotifyApi } from '../lib/spotify.js';
+import { readSession, writeSession } from '../lib/session.js';
+
+export default async function handler(req, res) {
+  const action = req.query.action;
+  try {
+    // --- AUTH ---
+    if (action === 'auth') {
+      if (!process.env.SPOTIFY_CLIENT_ID) return res.status(500).json({ error: 'SPOTIFY_CLIENT_ID not configured' });
+      const url = buildSpotifyAuthUrl(req, Math.random().toString(36).slice(2));
+      res.writeHead(302, { Location: url });
+      return res.end();
+    }
+
+    // --- CALLBACK ---
+    if (action === 'callback') {
+      const code = req.query.code;
+      const error = req.query.error;
+      if (error) return res.status(400).send('Spotify auth error: ' + error);
+      if (!code) return res.status(400).send('Missing code');
+      const tokens = await spotifyExchangeCode(req, code);
+      let session = await readSession(req); if (!session) session = {};
+      session.spotify = {
+        refreshToken: tokens.refresh_token,
+        accessToken: tokens.access_token,
+        expiresAt: Date.now() + (tokens.expires_in || 3600) * 1000
+      };
+      await writeSession(res, session);
+      res.writeHead(302, { Location: '/?spotify=1' });
+      return res.end();
+    }
+
+    // --- STATUS ---
+    if (action === 'status') {
+      const session = await readSession(req);
+      if (!session?.spotify?.refreshToken) return res.status(200).json({ connected: false });
+      const t = await getSpotifyToken(req, res);
+      const now = await spotifyApi(t.accessToken, '/me/player/currently-playing');
+      return res.status(200).json({
+        connected: true,
+        playing: !!now?.is_playing,
+        track: now?.item ? { name: now.item.name, artist: now.item.artists.map(a=>a.name).join(', '), album: now.item.album?.name } : null
+      });
+    }
+
+    // --- PLAY ---
+    if (action === 'play') {
+      const t = await getSpotifyToken(req, res);
+      if (!t) return res.status(401).json({ error: 'not_connected' });
+      const query = req.query.q;
+      if (query) {
+        const search = await spotifyApi(t.accessToken, '/search?type=track&limit=1&q=' + encodeURIComponent(query));
+        const track = search.tracks?.items?.[0];
+        if (!track) return res.status(404).json({ error: 'not_found', query });
+        await spotifyApi(t.accessToken, '/me/player/play', { method: 'PUT', body: JSON.stringify({ uris: [track.uri] }) });
+        return res.status(200).json({ ok: true, track: { name: track.name, artist: track.artists.map(a=>a.name).join(', ') } });
+      }
+      await spotifyApi(t.accessToken, '/me/player/play', { method: 'PUT' });
+      return res.status(200).json({ ok: true, action: 'resumed' });
+    }
+
+    // --- CONTROL ---
+    if (action === 'control') {
+      const t = await getSpotifyToken(req, res);
+      if (!t) return res.status(401).json({ error: 'not_connected' });
+      const cmd = req.query.cmd;
+      if (cmd === 'pause') await spotifyApi(t.accessToken, '/me/player/pause', { method: 'PUT' });
+      else if (cmd === 'next') await spotifyApi(t.accessToken, '/me/player/next', { method: 'POST' });
+      else if (cmd === 'previous') await spotifyApi(t.accessToken, '/me/player/previous', { method: 'POST' });
+      else if (cmd === 'volume') {
+        const vol = Math.max(0, Math.min(100, parseInt(req.query.level || '50')));
+        await spotifyApi(t.accessToken, '/me/player/volume?volume_percent=' + vol, { method: 'PUT' });
+      } else return res.status(400).json({ error: 'unknown_command' });
+      return res.status(200).json({ ok: true, cmd });
+    }
+
+    res.status(400).json({ error: 'unknown_action' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+}
