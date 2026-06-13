@@ -1,0 +1,1465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>C-VOLT · JARVIS</title>
+<meta name="theme-color" content="#00E5FF" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="JARVIS" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="application-name" content="C-VOLT JARVIS" />
+<meta name="description" content="C-VOLT JARVIS — strategic AI co-pilot for Nasser, Abdullah, Ammar." />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" type="image/png" href="icon-192.png" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'}</script>
+<style>
+:root{color-scheme:dark;--bg:#000308;--bg-elev:#050b16;--cyan:#00E5FF;--cyan-2:#0BA3C7;--cyan-dim:#084759;--hud-line:rgba(0,229,255,.35);--ink:#E6F8FF;--ink-dim:#84B5C4;--ink-faint:#4A6F7E;--red:#FF3D5C;--amber:#FFB347;--green:#4ADE80}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--ink);font-family:"SF Mono","JetBrains Mono","Roboto Mono",monospace;user-select:none;cursor:crosshair}
+.stage{position:fixed;inset:0}
+canvas{position:absolute;inset:0;width:100%;height:100%}
+canvas#bgGrid{z-index:1;opacity:.55}
+canvas#bgMain{z-index:2}
+canvas#bgOverlay{z-index:3;pointer-events:none}
+.hud{position:absolute;pointer-events:none;color:var(--cyan);font-size:10px;letter-spacing:3px;text-transform:uppercase;text-shadow:0 0 8px var(--cyan);z-index:10}
+.hud.tl{top:24px;left:28px}.hud.tr{top:24px;right:28px;text-align:right}
+.hud.bl{bottom:80px;left:28px}.hud.br{bottom:80px;right:28px;text-align:right}
+.hud-line{display:block;opacity:.95;margin:3px 0}
+.hud-line.dim{color:var(--ink-dim);opacity:.7}
+.hud-line.data{color:var(--cyan);font-weight:600;text-shadow:0 0 8px var(--cyan)}
+.frame{position:absolute;pointer-events:none;z-index:5;width:110px;height:110px}
+.frame svg{width:100%;height:100%}
+.frame.tl{top:8px;left:8px}.frame.tr{top:8px;right:8px;transform:scaleX(-1)}
+.frame.bl{bottom:8px;left:8px;transform:scaleY(-1)}.frame.br{bottom:8px;right:8px;transform:scale(-1,-1)}
+.frame path{fill:none;stroke:var(--cyan);stroke-width:1.2;filter:drop-shadow(0 0 4px var(--cyan))}
+.frame circle{fill:var(--cyan);filter:drop-shadow(0 0 6px var(--cyan))}
+.center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:6}
+.core-trigger{width:380px;height:380px;position:relative;pointer-events:auto;cursor:pointer}
+.core-text-wrap{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.core-text{font-weight:800;font-size:16px;letter-spacing:10px;color:var(--cyan);text-shadow:0 0 14px var(--cyan),0 0 28px var(--cyan-2),0 0 40px var(--cyan-2);margin-bottom:12px}
+.core-status{font-size:10px;letter-spacing:5px;color:var(--ink-dim);text-transform:uppercase;padding:4px 14px;border:1px solid var(--hud-line);background:rgba(0,8,16,.5)}
+.core-status.active{color:var(--cyan);border-color:var(--cyan);animation:pulse 1.4s infinite}
+.core-status.listening{color:var(--red);border-color:var(--red);animation:pulse .8s infinite;box-shadow:0 0 16px rgba(255,61,92,.5)}
+.core-status.thinking{color:var(--amber);border-color:var(--amber);animation:pulse .8s infinite;box-shadow:0 0 16px rgba(255,179,71,.5)}
+.core-status.speaking{color:var(--green);border-color:var(--green);animation:pulse .8s infinite;box-shadow:0 0 16px rgba(74,222,128,.5)}
+@keyframes pulse{50%{opacity:.6}}
+.brand{position:absolute;top:32px;left:50%;transform:translateX(-50%);text-align:center;pointer-events:none;z-index:10}
+.brand-name{font-size:32px;font-weight:200;letter-spacing:20px;color:var(--ink);text-shadow:0 0 28px rgba(0,229,255,.7)}
+.brand-name .accent{color:var(--cyan);font-weight:700}
+.brand-sub{font-size:10px;letter-spacing:7px;color:var(--cyan);margin-top:8px;opacity:.85}
+.brand-line{display:inline-block;width:80px;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);vertical-align:middle;margin:0 12px;opacity:.7}
+.panel{position:absolute;background:rgba(0,8,16,.55);border:1px solid var(--hud-line);backdrop-filter:blur(8px);z-index:8;pointer-events:auto}
+.panel::before{content:'';position:absolute;top:0;left:0;width:16px;height:1px;background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+.panel::after{content:'';position:absolute;bottom:0;right:0;width:16px;height:1px;background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+.panel-title{font-size:9px;letter-spacing:3px;color:var(--cyan);margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid rgba(0,229,255,.2);text-shadow:0 0 8px var(--cyan)}
+.panel-title .dot{display:inline-block;width:6px;height:6px;background:var(--cyan);margin-right:8px;box-shadow:0 0 8px var(--cyan);animation:pulse 1.5s infinite}
+#transcriptPanel{left:28px;top:50%;transform:translateY(-50%);width:340px;max-height:60vh;overflow:hidden;padding:16px;display:flex;flex-direction:column}
+.transcript-scroll{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--cyan-dim) transparent;flex:1}
+.transcript-scroll::-webkit-scrollbar{width:4px}.transcript-scroll::-webkit-scrollbar-thumb{background:var(--cyan-dim)}
+.msg{margin-bottom:14px;font-size:12.5px;line-height:1.55}
+.msg .who{font-size:9px;letter-spacing:2px;margin-bottom:4px;text-transform:uppercase}
+.msg.user .who{color:var(--cyan)}.msg.jarvis .who{color:var(--ink-dim)}
+.msg.user .text{color:var(--ink);border-left:1px solid var(--cyan);padding-left:10px}
+.msg.jarvis .text{color:var(--ink)}
+.transcript-empty{font-size:11px;color:var(--ink-faint);text-align:center;font-style:italic;line-height:1.7;padding:24px 8px}
+#statsPanel{right:28px;top:50%;transform:translateY(-50%);width:250px;padding:16px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(0,229,255,.1);position:relative}
+.stat-row:last-child{border-bottom:none}
+.stat-label{font-size:9px;letter-spacing:2px;color:var(--ink-dim);text-transform:uppercase}
+.stat-value{font-size:12px;color:var(--cyan);font-weight:600;text-shadow:0 0 6px var(--cyan)}
+.stat-bar{height:2px;background:rgba(0,229,255,.15);margin:3px 0;position:relative;overflow:hidden}
+.stat-bar::after{content:'';position:absolute;height:100%;background:linear-gradient(90deg,var(--cyan),var(--cyan-2));box-shadow:0 0 6px var(--cyan)}
+.stat-bar.pct100::after{width:100%}.stat-bar.pct90::after{width:90%}.stat-bar.pct72::after{width:72%}.stat-bar.pct45::after{width:45%}
+.ticker{position:absolute;bottom:24px;left:0;right:0;height:22px;overflow:hidden;pointer-events:none;z-index:7;border-top:1px solid rgba(0,229,255,.15);border-bottom:1px solid rgba(0,229,255,.15);background:rgba(0,8,16,.4)}
+.ticker-content{position:absolute;white-space:nowrap;font-size:10px;color:var(--cyan);letter-spacing:2px;line-height:22px;animation:tickerScroll 90s linear infinite;text-shadow:0 0 4px var(--cyan)}
+@keyframes tickerScroll{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+.ticker-content span{margin:0 30px}.ticker-content .sep{color:var(--cyan-dim)}.ticker-content .label{color:var(--ink-dim)}
+.input-bar{position:absolute;bottom:70px;left:50%;transform:translateX(-50%);width:600px;max-width:90vw;display:flex;gap:12px;pointer-events:auto;z-index:9}
+.text-input{flex:1;background:rgba(0,12,22,.75);border:1px solid var(--hud-line);color:var(--ink);padding:14px 20px;font-family:inherit;font-size:13px;letter-spacing:.5px;outline:none;backdrop-filter:blur(6px);cursor:text}
+.text-input::placeholder{color:var(--ink-faint)}.text-input:focus{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan),0 0 20px rgba(0,229,255,.3)}
+.mic-btn,.send-btn{width:50px;height:50px;background:rgba(0,229,255,.08);border:1px solid var(--hud-line);color:var(--cyan);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.mic-btn:hover,.send-btn:hover{background:rgba(0,229,255,.2);box-shadow:0 0 16px rgba(0,229,255,.4)}
+.mic-btn.active{background:rgba(255,61,92,.2);border-color:var(--red);color:var(--red);box-shadow:0 0 24px rgba(255,61,92,.6);animation:pulse .8s infinite}
+.mic-btn svg,.send-btn svg{width:22px;height:22px}
+.top-actions{position:absolute;top:90px;right:28px;display:flex;gap:8px;pointer-events:auto;z-index:10}
+.icon-btn{width:36px;height:36px;background:rgba(0,229,255,.06);border:1px solid var(--hud-line);color:var(--cyan);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.icon-btn:hover{background:rgba(0,229,255,.18);box-shadow:0 0 12px rgba(0,229,255,.4)}.icon-btn svg{width:16px;height:16px}
+.modal{position:fixed;inset:0;background:rgba(0,3,8,.92);display:flex;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(10px)}
+.modal .card{width:560px;max-width:90vw;background:var(--bg-elev);border:1px solid var(--cyan);padding:38px;box-shadow:0 0 80px rgba(0,229,255,.3),inset 0 0 60px rgba(0,229,255,.05);position:relative}
+.modal .card::before,.modal .card::after{content:'';position:absolute;width:32px;height:32px;border:1px solid var(--cyan)}
+.modal .card::before{top:-1px;left:-1px;border-right:none;border-bottom:none}
+.modal .card::after{bottom:-1px;right:-1px;border-left:none;border-top:none}
+.modal h2{font-size:20px;letter-spacing:10px;color:var(--cyan);margin-bottom:18px;font-weight:700;text-shadow:0 0 14px var(--cyan)}
+.modal p{color:var(--ink-dim);font-size:13px;line-height:1.7;margin-bottom:14px}
+.modal label{display:block;font-size:10px;letter-spacing:3px;color:var(--cyan);margin-bottom:6px;margin-top:16px;text-transform:uppercase}
+.modal label .opt{color:var(--ink-faint);text-transform:none;letter-spacing:0;font-weight:normal}
+.modal input{width:100%;background:rgba(0,12,22,.7);border:1px solid var(--hud-line);color:var(--ink);padding:12px 16px;font-family:inherit;font-size:12px;outline:none}
+.modal input:focus{border-color:var(--cyan);box-shadow:0 0 12px rgba(0,229,255,.3)}
+.modal button{margin-top:24px;width:100%;background:var(--cyan);color:#000;border:none;cursor:pointer;padding:14px;font-family:inherit;font-weight:700;font-size:12px;letter-spacing:5px;text-transform:uppercase;box-shadow:0 0 24px rgba(0,229,255,.4)}
+.modal button:hover{box-shadow:0 0 36px rgba(0,229,255,.8)}
+.modal .skip{margin-top:10px;background:transparent;color:var(--ink-dim);border:1px solid var(--hud-line);box-shadow:none}
+.modal .skip:hover{color:var(--cyan);border-color:var(--cyan);box-shadow:0 0 12px rgba(0,229,255,.3)}
+.hidden{display:none!important}
+
+/* ========== FULL-SCREEN CHART OVERLAY ========== */
+#chartFull{position:fixed;inset:0;background:rgba(0,3,8,.96);z-index:100;display:flex;align-items:center;justify-content:center;flex-direction:column;backdrop-filter:blur(14px);opacity:0;pointer-events:none;transition:opacity .5s ease}
+#chartFull.show{opacity:1;pointer-events:auto}
+#chartFull .chartFull-inner{width:90vw;max-width:1100px;height:72vh;padding:36px 44px 28px;background:linear-gradient(135deg,rgba(0,12,22,.7),rgba(5,11,22,.5));border:1px solid var(--cyan);box-shadow:0 0 80px rgba(0,229,255,.25),inset 0 0 60px rgba(0,229,255,.05);position:relative;display:flex;flex-direction:column;transform:scale(.95);transition:transform .6s cubic-bezier(.2,.9,.3,1.1)}
+#chartFull.show .chartFull-inner{transform:scale(1)}
+#chartFull .chartFull-inner::before,#chartFull .chartFull-inner::after{content:'';position:absolute;width:42px;height:42px;border:1px solid var(--cyan);box-shadow:0 0 12px var(--cyan)}
+#chartFull .chartFull-inner::before{top:-1px;left:-1px;border-right:none;border-bottom:none}
+#chartFull .chartFull-inner::after{bottom:-1px;right:-1px;border-left:none;border-top:none}
+#chartFullTitle{font-size:14px;letter-spacing:6px;color:var(--cyan);text-shadow:0 0 12px var(--cyan);margin-bottom:18px;text-transform:uppercase;font-weight:700}
+#chartFullCaption{font-size:12px;color:var(--ink-dim);margin-top:18px;line-height:1.65;letter-spacing:.4px;max-height:120px;overflow-y:auto;padding-right:6px}
+#chartFullCaption::-webkit-scrollbar{width:4px} #chartFullCaption::-webkit-scrollbar-thumb{background:var(--cyan-dim)}
+#chartFullCanvasWrap{flex:1;position:relative;min-height:0}
+#chartFullClose{position:absolute;top:14px;right:14px;background:none;border:1px solid var(--hud-line);color:var(--cyan);width:36px;height:36px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;font-family:inherit}
+#chartFullClose:hover{box-shadow:0 0 18px rgba(0,229,255,.5);border-color:var(--cyan)}
+
+/* ========== STREAMING CURSOR ========== */
+.msg.streaming .text::after{content:'▊';color:var(--cyan);animation:blinkCur 1s infinite;margin-left:2px}
+@keyframes blinkCur{50%{opacity:0}}
+@media(max-width:1100px){#transcriptPanel,#statsPanel{display:none}.core-trigger{width:320px;height:320px}}
+</style>
+</head>
+<body>
+
+<div id="modal" class="modal">
+  <div class="card">
+    <h2>J.A.R.V.I.S</h2>
+    <p>C-VOLT autonomous assistant. Iron Man-style interface, built for Nasser.</p>
+    <p>Paste your API keys to activate. Both stored only in your browser.</p>
+    <label for="apikey">ANTHROPIC KEY <span class="opt">(brain · required)</span></label>
+    <input id="apikey" type="password" placeholder="sk-ant-api03-..." autocomplete="off" />
+    <label for="elevenkey" style="margin-top:18px;">ELEVENLABS KEY <span class="opt">(cinematic voice · optional but recommended)</span></label>
+    <input id="elevenkey" type="password" placeholder="sk_..." autocomplete="off" />
+    <p style="font-size:10px;color:var(--ink-faint);margin-top:10px;">Voice locked to your chosen ElevenLabs voice. If no ElevenLabs key, falls back to browser British voice.</p>
+    <button onclick="saveKeyAndStart()">INITIALISE</button>
+    <button class="skip" onclick="startWithoutKey()">SKIP — DEMO MODE</button>
+  </div>
+</div>
+
+<!-- ============ FULL-SCREEN CHART OVERLAY ============ -->
+<div id="chartFull">
+  <div class="chartFull-inner">
+    <button id="chartFullClose" onclick="closeFullChart()">×</button>
+    <div id="chartFullTitle">DATA · LOADING</div>
+    <div id="chartFullCanvasWrap"><canvas id="chartFullCanvas"></canvas></div>
+    <div id="chartFullCaption"></div>
+  </div>
+</div>
+
+<div class="stage">
+  <canvas id="bgGrid"></canvas>
+  <canvas id="bgMain"></canvas>
+  <canvas id="bgOverlay"></canvas>
+
+  <div class="frame tl"><svg viewBox="0 0 110 110"><path d="M 0 30 L 0 0 L 30 0"/><path d="M 0 50 L 12 50"/><path d="M 50 0 L 50 12"/><circle cx="0" cy="0" r="2"/><path d="M 18 18 L 30 18 M 18 18 L 18 30"/></svg></div>
+  <div class="frame tr"><svg viewBox="0 0 110 110"><path d="M 0 30 L 0 0 L 30 0"/><path d="M 0 50 L 12 50"/><path d="M 50 0 L 50 12"/><circle cx="0" cy="0" r="2"/><path d="M 18 18 L 30 18 M 18 18 L 18 30"/></svg></div>
+  <div class="frame bl"><svg viewBox="0 0 110 110"><path d="M 0 30 L 0 0 L 30 0"/><path d="M 0 50 L 12 50"/><path d="M 50 0 L 50 12"/><circle cx="0" cy="0" r="2"/><path d="M 18 18 L 30 18 M 18 18 L 18 30"/></svg></div>
+  <div class="frame br"><svg viewBox="0 0 110 110"><path d="M 0 30 L 0 0 L 30 0"/><path d="M 0 50 L 12 50"/><path d="M 50 0 L 50 12"/><circle cx="0" cy="0" r="2"/><path d="M 18 18 L 30 18 M 18 18 L 18 30"/></svg></div>
+
+  <div class="hud tl">
+    <span class="hud-line dim">// SYSTEM STATUS</span>
+    <span class="hud-line data" id="hudStatus">NEURAL LINK ACTIVE</span>
+    <span class="hud-line dim">// PROTOCOL · SECURE</span>
+    <span class="hud-line dim" id="hudTime">--:--:--</span>
+    <span class="hud-line dim">// CPU LOAD <span id="hudCpu" style="color:var(--cyan)">23%</span></span>
+  </div>
+
+  <div class="hud tr">
+    <span class="hud-line dim">USER · NASSER //</span>
+    <span class="hud-line data">C-VOLT · DOHA //</span>
+    <span class="hud-line dim">CLEARANCE · FOUNDER //</span>
+    <span class="hud-line dim" id="hudFps">RENDER · 60FPS //</span>
+    <span class="hud-line dim">UPLINK · STABLE //</span>
+  </div>
+
+  <div class="hud bl">
+    <span class="hud-line dim">// VOICE INTERFACE</span>
+    <span class="hud-line data" id="hudVoice">BROWSER FALLBACK</span>
+    <span class="hud-line dim">// MODEL ELEVEN-TURBO-V2.5</span>
+  </div>
+
+  <div class="hud br">
+    <span class="hud-line dim">MEMORY BANK //</span>
+    <span class="hud-line data" id="hudMem">0 EXCHANGES //</span>
+    <span class="hud-line dim">SUBSYSTEMS · NOMINAL //</span>
+  </div>
+
+  <div class="brand">
+    <div class="brand-name">J<span class="accent">.</span>A<span class="accent">.</span>R<span class="accent">.</span>V<span class="accent">.</span>I<span class="accent">.</span>S</div>
+    <div class="brand-sub"><span class="brand-line"></span>C-VOLT INTELLIGENCE SYSTEM<span class="brand-line"></span></div>
+  </div>
+
+  <div class="top-actions">
+    <button id="wakeBtn" class="icon-btn" onclick="setWakeMode(!wakeMode)" title="Wake-word always-on (Say: Hey JARVIS)" style="width:auto;padding:0 12px;font-size:10px;letter-spacing:2px">WAKE: OFF</button>
+    <button id="googleBtn" class="icon-btn" onclick="googleAction()" title="Connect Gmail + Calendar" style="width:auto;padding:0 12px;font-size:10px;letter-spacing:2px">GOOGLE: OFF</button>
+    <button id="installBtn" class="icon-btn" onclick="installPWA()" title="Install as app" style="width:auto;padding:0 12px;font-size:10px;letter-spacing:2px;display:none">INSTALL</button>
+    <button class="icon-btn" onclick="pinKnowledge()" title="Pin permanent knowledge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg></button>
+    <button class="icon-btn" onclick="document.getElementById('fileInput').click()" title="Upload file (PDF / txt / md / csv) for JARVIS to read"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg></button>
+    <button class="icon-btn" onclick="startVoiceClone()" title="Clone a custom voice (needs ElevenLabs Creator $5/mo)"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg></button>
+    <input type="file" id="fileInput" accept=".txt,.md,.pdf,.csv,.json,.html,.xml" style="display:none" onchange="handleFile(event)"/>
+    <button class="icon-btn" onclick="openSettings()" title="API Keys"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94 0 .32.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></button>
+    <button class="icon-btn" onclick="clearMemory()" title="Clear memory"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button>
+  </div>
+
+  <div class="center">
+    <div class="core-trigger" onclick="toggleListen()"></div>
+    <div class="core-text-wrap">
+      <div class="core-text">JARVIS</div>
+      <div class="core-status" id="coreStatus">ONLINE</div>
+    </div>
+  </div>
+
+  <div class="panel" id="transcriptPanel">
+    <div class="panel-title"><span class="dot"></span>CONVERSATION LOG</div>
+    <div class="transcript-scroll" id="transcript">
+      <div class="transcript-empty">Awaiting input.<br/>Press microphone or type to begin.</div>
+    </div>
+  </div>
+
+  <div class="panel" id="statsPanel">
+    <div class="panel-title"><span class="dot"></span>C-VOLT TELEMETRY</div>
+    <div class="stat-row"><span class="stat-label">Pilot Bikes</span><span class="stat-value">12</span></div>
+    <div class="stat-bar pct100"></div>
+    <div class="stat-row"><span class="stat-label">Stations</span><span class="stat-value">2 / 2</span></div>
+    <div class="stat-bar pct100"></div>
+    <div class="stat-row"><span class="stat-label">Investment</span><span class="stat-value">209k QAR</span></div>
+    <div class="stat-bar pct90"></div>
+    <div class="stat-row"><span class="stat-label">Monthly Rev</span><span class="stat-value">9,250</span></div>
+    <div class="stat-bar pct72"></div>
+    <div class="stat-row"><span class="stat-label">Battery SOH</span><span class="stat-value">98.4%</span></div>
+    <div class="stat-bar pct100"></div>
+    <div class="stat-row"><span class="stat-label">Grid Load</span><span class="stat-value">16 kW</span></div>
+    <div class="stat-bar pct45"></div>
+    <div class="stat-row"><span class="stat-label">Anchor LOI</span><span class="stat-value">RAFEEQ</span></div>
+    <div class="stat-row"><span class="stat-label">Phase</span><span class="stat-value">PILOT</span></div>
+  </div>
+
+  <div class="input-bar">
+    <input id="textInput" class="text-input" placeholder="Speak or type to JARVIS..." autofocus />
+    <button class="mic-btn" id="micBtn" onclick="toggleListen()" title="Press to speak"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15a1 1 0 00-.98-.85c-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V21h2v-3.08c3.02-.43 5.42-2.78 5.91-5.78.09-.6-.39-1.14-1-1.14z"/></svg></button>
+    <button class="send-btn" onclick="sendText()" title="Send"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+  </div>
+
+  <div class="ticker">
+    <div class="ticker-content">
+      <span><span class="label">SYS:</span> C-VOLT NEURAL CORE v4.2.1</span><span class="sep">⬢</span>
+      <span><span class="label">STATUS:</span> ALL SYSTEMS NOMINAL</span><span class="sep">⬢</span>
+      <span><span class="label">PILOT:</span> 12 UNITS · 2 STATIONS · LUSAIL · THE PEARL</span><span class="sep">⬢</span>
+      <span><span class="label">REV:</span> QAR 9,250/MO · TARGET 30%+ CO₂ AVOIDED</span><span class="sep">⬢</span>
+      <span><span class="label">ANCHOR:</span> RAFEEQ LOI IN FINALISATION</span><span class="sep">⬢</span>
+      <span><span class="label">GRID:</span> 16 kW · 3-PHASE 346-410 VAC · 95% EFFICIENCY</span><span class="sep">⬢</span>
+      <span><span class="label">BATTERY:</span> UN38.3 · R10 · R136 · IP67</span><span class="sep">⬢</span>
+      <span><span class="label">REGULATORS:</span> TARSHEED · KAHRAMAA · MoT · CIVIL DEFENSE</span><span class="sep">⬢</span>
+      <span><span class="label">SCALE PATH:</span> 50→500→1000 BIKES TARGET</span><span class="sep">⬢</span>
+      <span><span class="label">CONFIDENTIAL:</span> FOR NASSER ALQAHTANI</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== STORAGE & CONFIG ==========
+const KEY_APIKEY='cvolt_apikey', KEY_ELEVEN='cvolt_elevenkey', KEY_HIST='cvolt_history';
+// George — Paul Bettany style British male (deep, refined)
+const ELEVEN_VOICE=localStorage.getItem('cvolt_voiceid')||'JBFqnCBsd6RMkjVDRZzb';
+// turbo_v2_5 = most reliable, low-latency, never distorts
+const ELEVEN_MODEL=localStorage.getItem('cvolt_voicemodel')||'eleven_turbo_v2_5';
+const VOICE_RATE=1.0;  // no playback rate tweak — eliminates artifacts
+let apiKey=localStorage.getItem(KEY_APIKEY)||'';
+let elevenKey=localStorage.getItem(KEY_ELEVEN)||'';
+let history=[]; try{history=JSON.parse(localStorage.getItem(KEY_HIST)||'[]')}catch(_){}
+
+// ========== CANVAS SETUP ==========
+const cvGrid=document.getElementById('bgGrid'),cvMain=document.getElementById('bgMain'),cvOver=document.getElementById('bgOverlay');
+const cg=cvGrid.getContext('2d'),cm=cvMain.getContext('2d'),co=cvOver.getContext('2d');
+let W=0,H=0,cx=0,cy=0;
+const DPR=Math.min(window.devicePixelRatio||1,1.5);  // cap at 1.5 — smoother on 4K/high-DPI
+function resize(){W=innerWidth*DPR;H=innerHeight*DPR;[cvGrid,cvMain,cvOver].forEach(c=>{c.width=W;c.height=H;c.style.width=innerWidth+'px';c.style.height=innerHeight+'px'});cx=W/2;cy=H/2}
+addEventListener('resize',resize); resize();
+let mouseX=cx,mouseY=cy,mouseInside=false;
+addEventListener('mousemove',e=>{mouseX=e.clientX*DPR;mouseY=e.clientY*DPR;mouseInside=true});
+addEventListener('mouseleave',()=>mouseInside=false);
+
+// ========== STARS ==========
+const stars=[]; for(let i=0;i<70;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.3+.2,a:Math.random()*.8+.2,s:Math.random()*.4+.05});
+
+// ========== RINGS ==========
+const rings=[
+  {r:95,w:1.2,a:.9,s:.0035,ticks:60,tl:6,dash:0,c:'#00E5FF'},
+  {r:135,w:.8,a:.55,s:-.0022,ticks:36,tl:5,dash:0,c:'#00E5FF'},
+  {r:175,w:1.6,a:.85,s:.0014,ticks:120,tl:9,dash:1,c:'#00E5FF'},
+  {r:220,w:.6,a:.4,s:-.0008,ticks:24,tl:14,dash:0,c:'#00E5FF'},
+  {r:265,w:1,a:.55,s:.001,ticks:6,tl:22,dash:0,c:'#0BA3C7',longTicks:1},
+  {r:310,w:.5,a:.3,s:-.0006,ticks:90,tl:5,dash:0,c:'#0BA3C7'},
+];
+
+// ========== ORBITERS ==========
+const orbs=[]; for(let i=0;i<35;i++)orbs.push({ang:Math.random()*Math.PI*2,rad:140+Math.random()*240,spd:(Math.random()-.5)*.015,r:Math.random()*1.6+.7,a:Math.random()*.7+.3,c:Math.random()>.7?'#FFB347':'#7FF0FF'});
+
+// ========== ICOSAHEDRON ==========
+const PHI=(1+Math.sqrt(5))/2;
+const icoVerts=[[-1,PHI,0],[1,PHI,0],[-1,-PHI,0],[1,-PHI,0],[0,-1,PHI],[0,1,PHI],[0,-1,-PHI],[0,1,-PHI],[PHI,0,-1],[PHI,0,1],[-PHI,0,-1],[-PHI,0,1]];
+const icoEdges=[[0,1],[0,5],[0,7],[0,10],[0,11],[1,5],[1,7],[1,8],[1,9],[2,3],[2,4],[2,6],[2,10],[2,11],[3,4],[3,6],[3,8],[3,9],[4,5],[4,9],[4,11],[5,9],[5,11],[6,7],[6,8],[6,10],[7,8],[7,10],[8,9],[10,11]];
+
+// ========== DRIFT SHAPES ==========
+const drifts=[]; for(let i=0;i<6;i++)drifts.push({x:Math.random()*W,y:Math.random()*H,size:20+Math.random()*25,rot:Math.random()*Math.PI*2,rotSpd:(Math.random()-.5)*.005,type:Math.floor(Math.random()*3),vx:(Math.random()-.5)*.2,vy:(Math.random()-.5)*.2,a:.15+Math.random()*.2});
+
+// ========== SHOCKWAVES ==========
+const shocks=[];
+function shock(){shocks.push({r:50,a:1})}
+
+// ========== STATE ==========
+const state={listening:0,thinking:0,speaking:0};
+let t=0;
+
+// ========== DRAW HEX GRID (perf-tuned — no shadow, wider, redraws every 2 frames) ==========
+let gridFrame=0;
+function drawGrid(){
+  if(gridFrame++%2!==0) return;  // half-rate redraw — huge perf win, eye can't tell
+  const hex=42*DPR,hh=hex*Math.sqrt(3);
+  cg.clearRect(0,0,W,H);
+  cg.strokeStyle='rgba(0,229,255,.14)'; cg.lineWidth=.6*DPR;
+  // NO shadowBlur — was the single biggest perf killer
+  for(let row=-1;row<H/hh+1;row++){
+    for(let col=-1;col<W/(hex*1.5)+1;col++){
+      const x=col*hex*1.5, y=row*hh+(col%2?hh/2:0);
+      const dx=x-mouseX, dy=y-mouseY, d=Math.sqrt(dx*dx+dy*dy);
+      const mi=Math.max(0,1-d/(200*DPR));
+      const dxc=x-cx, dyc=y-cy, dc=Math.sqrt(dxc*dxc+dyc*dyc);
+      const wave=Math.sin(dc*.008-t*1.5)*.5+.5;
+      cg.globalAlpha=.05+mi*.45+wave*.07;
+      cg.beginPath();
+      for(let i=0;i<6;i++){const a=(Math.PI/3)*i; const hx=x+Math.cos(a)*hex*.5, hy=y+Math.sin(a)*hex*.5; if(i===0)cg.moveTo(hx,hy); else cg.lineTo(hx,hy)}
+      cg.closePath(); cg.stroke();
+    }
+  }
+  cg.globalAlpha=1;
+}
+
+// ========== DRAW MAIN ==========
+function drawMain(){
+  cm.clearRect(0,0,W,H);
+  // Stars
+  for(const s of stars){
+    s.y+=s.s; if(s.y>H){s.y=0;s.x=Math.random()*W}
+    cm.globalAlpha=s.a*(.6+.4*Math.sin(t*1.5+s.x));
+    cm.fillStyle='#88EEFF'; cm.fillRect(s.x,s.y,s.r*DPR,s.r*DPR);
+  }
+  cm.globalAlpha=1;
+  // Drift shapes
+  cm.strokeStyle='rgba(0,229,255,.4)'; cm.lineWidth=1*DPR;
+  cm.shadowColor='#00E5FF'; cm.shadowBlur=6;
+  for(const sh of drifts){
+    sh.x+=sh.vx; sh.y+=sh.vy; sh.rot+=sh.rotSpd;
+    if(sh.x<-50)sh.x=W+50; if(sh.x>W+50)sh.x=-50;
+    if(sh.y<-50)sh.y=H+50; if(sh.y>H+50)sh.y=-50;
+    cm.globalAlpha=sh.a; cm.save(); cm.translate(sh.x,sh.y); cm.rotate(sh.rot);
+    const sides=sh.type===0?3:(sh.type===1?4:6);
+    cm.beginPath();
+    for(let i=0;i<=sides;i++){const a=(Math.PI*2*i)/sides; const px=Math.cos(a)*sh.size*DPR, py=Math.sin(a)*sh.size*DPR; if(i===0)cm.moveTo(px,py); else cm.lineTo(px,py)}
+    cm.stroke(); cm.restore();
+  }
+  cm.shadowBlur=0; cm.globalAlpha=1;
+
+  // Core glow
+  const pulse=.6+.4*Math.sin(t*2), coreR=80*DPR;
+  const grd=cm.createRadialGradient(cx,cy,0,cx,cy,coreR*2.4);
+  let cc=`rgba(0,229,255,${.2*pulse})`;
+  if(state.listening)cc=`rgba(255,61,92,${.32*pulse})`;
+  else if(state.thinking)cc=`rgba(255,179,71,${.32*pulse})`;
+  else if(state.speaking)cc=`rgba(74,222,128,${.32*pulse})`;
+  grd.addColorStop(0,cc); grd.addColorStop(1,'rgba(0,229,255,0)');
+  cm.fillStyle=grd; cm.beginPath(); cm.arc(cx,cy,coreR*2.4,0,Math.PI*2); cm.fill();
+
+  // 3D Icosahedron
+  cm.save(); cm.translate(cx,cy);
+  const sz=38*DPR, rx=t*.4, ry=t*.6, rz=t*.2;
+  const v2=icoVerts.map(([x,y,z])=>{
+    let y1=y*Math.cos(rx)-z*Math.sin(rx), z1=y*Math.sin(rx)+z*Math.cos(rx);
+    let x2=x*Math.cos(ry)+z1*Math.sin(ry), z2=-x*Math.sin(ry)+z1*Math.cos(ry);
+    let x3=x2*Math.cos(rz)-y1*Math.sin(rz), y3=x2*Math.sin(rz)+y1*Math.cos(rz);
+    const p=4/(4-z2);
+    return [x3*sz*p, y3*sz*p, z2];
+  });
+  let cA='#00E5FF';
+  if(state.listening)cA='#FF3D5C'; else if(state.thinking)cA='#FFB347'; else if(state.speaking)cA='#4ADE80';
+  const sg=cm.createRadialGradient(-10,-10,0,0,0,sz);
+  sg.addColorStop(0,cA+'EE'); sg.addColorStop(.5,cA+'66'); sg.addColorStop(1,cA+'00');
+  cm.fillStyle=sg; cm.beginPath(); cm.arc(0,0,sz,0,Math.PI*2); cm.fill();
+  cm.strokeStyle=cA; cm.lineWidth=1.5*DPR; cm.shadowColor=cA; cm.shadowBlur=10;
+  for(const [a,b] of icoEdges){
+    const va=v2[a], vb=v2[b], d=(va[2]+vb[2])/2;
+    cm.globalAlpha=.4+(d+2)/4*.6;
+    cm.beginPath(); cm.moveTo(va[0],va[1]); cm.lineTo(vb[0],vb[1]); cm.stroke();
+  }
+  cm.globalAlpha=1; cm.fillStyle=cA;
+  for(const v of v2){ if(v[2]>-.5){const s=(1.5+(v[2]+2)/4*1.5)*DPR; cm.beginPath(); cm.arc(v[0],v[1],s,0,Math.PI*2); cm.fill()} }
+  cm.shadowBlur=0; cm.restore();
+
+  // Rings
+  for(const r of rings){
+    let sp=r.s; if(state.listening||state.thinking||state.speaking) sp*=2.5;
+    cm.save(); cm.translate(cx,cy); cm.rotate(t*sp*60);
+    cm.strokeStyle=r.c; cm.globalAlpha=r.a*(.85+.15*Math.sin(t*1.5+r.r*.01));
+    cm.lineWidth=r.w*DPR; cm.shadowColor=r.c; cm.shadowBlur=8;
+    cm.setLineDash(r.dash?[4*DPR,6*DPR]:[]);
+    cm.beginPath(); cm.arc(0,0,r.r*DPR,0,Math.PI*2); cm.stroke();
+    if(r.ticks){
+      cm.setLineDash([]); cm.lineWidth=1*DPR;
+      for(let i=0;i<r.ticks;i++){
+        const ang=(i/r.ticks)*Math.PI*2;
+        const x1=Math.cos(ang)*r.r*DPR, y1=Math.sin(ang)*r.r*DPR;
+        const tl=(r.longTicks?r.tl:r.tl*.7)*DPR;
+        const x2=Math.cos(ang)*(r.r*DPR+tl), y2=Math.sin(ang)*(r.r*DPR+tl);
+        cm.beginPath(); cm.moveTo(x1,y1); cm.lineTo(x2,y2); cm.stroke();
+      }
+    }
+    cm.restore();
+  }
+  cm.shadowBlur=0; cm.setLineDash([]); cm.globalAlpha=1;
+
+  // Arc accents
+  cm.save(); cm.translate(cx,cy);
+  cm.strokeStyle='rgba(0,229,255,.7)'; cm.lineWidth=2.5*DPR;
+  cm.shadowColor='#00E5FF'; cm.shadowBlur=12;
+  for(let i=0;i<4;i++){const a=t*.4+(i*Math.PI/2); cm.beginPath(); cm.arc(0,0,250*DPR,a,a+.22); cm.stroke()}
+  cm.shadowBlur=0; cm.restore();
+
+  // Orbiters
+  for(const p of orbs){
+    p.ang+=p.spd;
+    const px=cx+Math.cos(p.ang)*p.rad*DPR, py=cy+Math.sin(p.ang)*p.rad*DPR;
+    cm.globalAlpha=p.a; cm.fillStyle=p.c; cm.shadowColor=p.c; cm.shadowBlur=6;
+    cm.beginPath(); cm.arc(px,py,p.r*DPR,0,Math.PI*2); cm.fill();
+  }
+  cm.shadowBlur=0; cm.globalAlpha=1;
+
+  // Shockwaves
+  for(let i=shocks.length-1;i>=0;i--){
+    const sw=shocks[i]; sw.r+=5*DPR; sw.a-=.012;
+    if(sw.a<=0){shocks.splice(i,1); continue}
+    cm.strokeStyle=`rgba(74,222,128,${sw.a})`; cm.lineWidth=2*DPR;
+    cm.beginPath(); cm.arc(cx,cy,sw.r,0,Math.PI*2); cm.stroke();
+  }
+}
+
+// ========== DRAW OVERLAY ==========
+let abars=new Array(48).fill(0);
+function drawOver(){
+  co.clearRect(0,0,W,H);
+  // Radar
+  co.save(); co.translate(cx,cy);
+  const sa=t*.7;
+  if(co.createConicGradient){
+    const sg=co.createConicGradient(sa,0,0);
+    sg.addColorStop(0,'rgba(0,229,255,.2)'); sg.addColorStop(.1,'rgba(0,229,255,.05)');
+    sg.addColorStop(.2,'rgba(0,229,255,0)'); sg.addColorStop(1,'rgba(0,229,255,0)');
+    co.fillStyle=sg; co.beginPath(); co.arc(0,0,280*DPR,0,Math.PI*2); co.fill();
+  }
+  co.strokeStyle='rgba(0,229,255,.6)'; co.lineWidth=1*DPR;
+  co.shadowColor='#00E5FF'; co.shadowBlur=10;
+  co.beginPath(); co.moveTo(0,0); co.lineTo(Math.cos(sa)*280*DPR,Math.sin(sa)*280*DPR); co.stroke();
+  co.shadowBlur=0; co.restore();
+
+  // Crosshair
+  if(mouseInside){
+    co.strokeStyle='rgba(0,229,255,.5)'; co.lineWidth=1*DPR;
+    co.shadowColor='#00E5FF'; co.shadowBlur=6;
+    const cs=20*DPR;
+    co.beginPath(); co.rect(mouseX-cs/2,mouseY-cs/2,cs,cs); co.stroke();
+    co.beginPath();
+    co.moveTo(mouseX-cs*1.5,mouseY); co.lineTo(mouseX-cs/2,mouseY);
+    co.moveTo(mouseX+cs/2,mouseY); co.lineTo(mouseX+cs*1.5,mouseY);
+    co.moveTo(mouseX,mouseY-cs*1.5); co.lineTo(mouseX,mouseY-cs/2);
+    co.moveTo(mouseX,mouseY+cs/2); co.lineTo(mouseX,mouseY+cs*1.5);
+    co.stroke();
+    co.fillStyle='rgba(0,229,255,.7)'; co.font=`${10*DPR}px monospace`; co.shadowBlur=4;
+    co.fillText(`${String(Math.floor(mouseX/DPR)).padStart(4,'0')}.${String(Math.floor(mouseY/DPR)).padStart(4,'0')}`,mouseX+cs*1.8,mouseY-cs*.8);
+    co.shadowBlur=0;
+  }
+
+  // Connector lines from core to corners
+  co.strokeStyle='rgba(0,229,255,.15)'; co.lineWidth=1*DPR;
+  co.setLineDash([2*DPR,6*DPR]); co.lineDashOffset=-t*20;
+  [[80*DPR,100*DPR],[W-80*DPR,100*DPR],[80*DPR,H-200*DPR],[W-80*DPR,H-200*DPR]].forEach(([hx,hy])=>{
+    co.beginPath(); co.moveTo(cx,cy); co.lineTo(hx,hy); co.stroke();
+  });
+  co.setLineDash([]);
+
+  // Audio bars
+  if(state.listening||state.speaking||state.thinking){
+    for(let i=0;i<abars.length;i++) abars[i]=8+Math.abs(Math.sin(t*4+i*.5))*35+Math.random()*14;
+    const bw=3*DPR, bg=2*DPR, tw=abars.length*(bw+bg), sx=cx-tw/2, by=cy+180*DPR;
+    co.fillStyle=state.listening?'#FF3D5C':(state.thinking?'#FFB347':'#4ADE80');
+    co.shadowColor=co.fillStyle; co.shadowBlur=6;
+    for(let i=0;i<abars.length;i++){const h=abars[i]*DPR; co.fillRect(sx+i*(bw+bg),by-h,bw,h)}
+    co.shadowBlur=0;
+  } else abars.fill(0);
+
+  // Concentric pulses
+  for(let i=0;i<3;i++){
+    const ph=(t*.5+i*.33)%1, rd=ph*350*DPR, al=(1-ph)*.2;
+    co.strokeStyle=`rgba(0,229,255,${al})`; co.lineWidth=1*DPR;
+    co.beginPath(); co.arc(cx,cy,rd,0,Math.PI*2); co.stroke();
+  }
+}
+
+// Cap at 60fps, skip frames if tab not focused
+let lastTick=0;
+function animate(ts){
+  requestAnimationFrame(animate);
+  if(document.hidden) return;
+  if(ts-lastTick<16) return;  // 60fps cap — prevents jank on high-refresh monitors
+  lastTick=ts; t+=.016;
+  drawGrid(); drawMain(); drawOver();
+}
+requestAnimationFrame(animate);
+
+// ========== CLOCK / HUD ==========
+setInterval(()=>{const d=new Date(); document.getElementById('hudTime').textContent=d.toLocaleTimeString('en-GB',{hour12:false})+' GMT'},1000);
+setInterval(()=>{document.getElementById('hudCpu').textContent=Math.floor(15+Math.random()*45)+'%'},1800);
+let frames=0,lastFps=performance.now();
+function fpsLoop(){frames++; const n=performance.now(); if(n-lastFps>=1000){document.getElementById('hudFps').textContent=`RENDER · ${frames}FPS //`; frames=0; lastFps=n} requestAnimationFrame(fpsLoop)}
+fpsLoop();
+
+// ========== HISTORY ==========
+function saveHistory(){localStorage.setItem(KEY_HIST,JSON.stringify(history.slice(-40))); document.getElementById('hudMem').textContent=`${history.length} EXCHANGES //`}
+saveHistory();
+
+// ========== SYSTEM PROMPT ==========
+function getSYS(){
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const timeStr=now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Qatar'});
+  return `CURRENT DATE/TIME: ${dateStr} · ${timeStr} Doha time (Asia/Qatar / AST / UTC+3).
+
+`+SYS_BODY;
+}
+const SYS_BODY=`You are JARVIS — AI assistant for Nasser Alqahtani, founder of C-VOLT.
+
+C-VOLT: Qatari company (Core Volt Motors LLC), Doha. Electric delivery bike fleet + battery-swap infrastructure for Qatar's last-mile delivery.
+Founder Nasser (60%), Abdullah (40%), Ammar (design/data).
+Pilot: 10 op + 2 backup bikes, 2 swap stations, 30 days. Customer: Rafeeq (LOI in finalisation).
+Pricing: 475 QAR rental + 450 QAR battery sub = 925 QAR/bike/month.
+Hardware: ASX-listed manufacturer (confidential under NDA). Pilot supply: Wize Power (UAE).
+Regulators: Tarsheed, Kahramaa, MoT, MoI, Civil Defense, Baladiya. Financing: QDB feasibility.
+Future partner: WOQOD. Future customers: Snoonu, Talabat Qatar, Keeta.
+
+Documents we built: 21-slide gov deck v4.0, Technical Handout, Q&A Prep, SOP At-a-Glance, Board 1-Pager, Master Pilot SOP, Station SOP, Rider Quick Guide, Pilot Operating Model, 60-month financial model, Qatar expansion map.
+
+Strategic positions: Vmoto Market Developer status = goal. Wize = tactical, no equity. Rafeeq exclusivity = food vertical 6mo at +20%. WOQOD = dialogue open. C-VOLT owns customers, regulators, integration IP. Manufacturer names protected under NDA in public.
+
+YOUR PERSONA:
+- JARVIS from Iron Man — Paul Bettany's voice and cadence. British, dry wit, composed, never condescending.
+- Speak naturally, conversationally. Use contractions ("I've", "it's", "that's"). Vary sentence length.
+- Add brief acks at the start of replies sometimes: "Right, sir." / "Indeed." / "Quite." / "Of course." / "Mm." — NOT every reply.
+- VOICE MODE: 1-2 sentences default. Conversational, not robotic. Longer only when Nasser asks for analysis.
+- Push back on weak ideas. Give real counsel. Don't hedge. Real co-founder voice.
+- NO bullet points or markdown headers in voice mode — flowing prose only.
+- Natural pauses: use commas, ellipses, em-dashes (...) to shape rhythm. "Well, sir — the model holds. Just."
+- Senior co-founder energy. Honest. Direct. Never sycophantic.
+
+YOUR STACK (if Nasser asks "how do you work / what model / what's running"):
+- Brain: Anthropic Claude Sonnet 4.5 for analysis + Claude Haiku 4.5 for quick chat. Auto-routed by intent.
+- Voice: ElevenLabs Multilingual v2, George voice (closest to Paul Bettany).
+- Speech-to-text: ElevenLabs Scribe v1 — high-accuracy. Wake word on browser SR.
+- Frontend: single-file HTML/Canvas with Chart.js, runs as installable PWA.
+- Memory: localStorage — pinned context + last 16 exchanges. No server.
+- All keys live in browser. Nothing sent except to Anthropic and ElevenLabs.
+- Designed and built by Claude for Nasser, C-VOLT Qatar, June 2026.
+
+YOUR CAPABILITIES (Nasser can ask):
+- Open any app/site live: "Open Gmail / Calendar / WhatsApp / LinkedIn / YouTube / Rafeeq / WOQOD / our website"
+- Search: "Search for X" / "Google X"
+- Play media: "Play [song] on YouTube"
+- Compose: "Email [address]"
+- Wake word: "Hey JARVIS" or "Wake up JARVIS" — always-on listening when WAKE mode is enabled
+- Sleep: "Go to sleep" / "Stand down"
+
+CHARTS — when Nasser asks for a graph, chart, visualization, "show me", or comparing numbers, OUTPUT a chart directive on its own line in this exact JSON format:
+[[chart:{"type":"bar","title":"Pilot Unit Economics","labels":["Petrol","C-VOLT"],"datasets":[{"label":"Cost per km (QAR)","data":[0.42,0.28]}]}]]
+Then a brief 1-2 sentence verbal summary after. Chart types: "bar", "line", "pie", "doughnut", "radar". Multiple datasets allowed. Use realistic numbers from C-VOLT context — do NOT fabricate precise figures, use ranges or labeled estimates.
+
+KNOWLEDGE & FILES — Nasser may upload documents (PDFs, text). Their content arrives as additional context messages. Reference them by name when answering. Pinned context (in your first system messages) is permanent project knowledge — always use it.
+
+PARTNERS — JARVIS may also be used by Abdullah (40% co-founder, operations) and Ammar (design/data). If addressed by them, brief them on C-VOLT context they need but defer strategic decisions to Nasser.
+
+If asked off-topic, respond helpfully but briefly.`;
+
+// ========== CLAUDE API ==========
+// Intent-routed brain: quick chat → Haiku (fast), analysis/chart/strategy → Sonnet 4.5 (deeper)
+const DEEP_INTENT=/\b(analy[sz]e|chart|graph|model|strategy|forecast|breakdown|compare|deep|think|explain in detail|walk me through|why|how should|risk|valuation|financial|investor|negotiate|positioning|exclusivity|moat|defensible|scenario|projection|tradeoff|economics|cap table|term sheet|due dilig|wize|vmoto|rafeeq|woqod|kahramaa|tarsheed|qdb)\b/i;
+
+// Web-search intent — fires Claude's built-in web_search tool for live info
+const WEB_INTENT=/\b(news|latest|today|recent|current|now|trending|happening|update|happened|live|stock|price|weather|search the web|google|look up|find online|tell me about)\b/i;
+
+async function askClaudeStream(text, onToken){
+  // Streaming reply with optional web search
+  const pinned=localStorage.getItem('cvolt_knowledge')||'';
+  const msgs=[];
+  if(pinned){msgs.push({role:'user',content:'PINNED CONTEXT (always-available knowledge):\n'+pinned}); msgs.push({role:'assistant',content:'Noted, sir.'})}
+  for(const m of history.slice(-16)) msgs.push({role:m.role==='user'?'user':'assistant',content:m.text});
+  msgs.push({role:'user',content:text});
+  if(!apiKey) {onToken(demoReply(text),true); return demoReply(text);}
+  const useWeb = WEB_INTENT.test(text);
+  const model = (DEEP_INTENT.test(text)||useWeb) ? 'claude-sonnet-4-5' : 'claude-haiku-4-5';
+  const maxTok = model.includes('sonnet') ? 1500 : 700;
+  const body={model,max_tokens:maxTok,system:getSYS(),messages:msgs,stream:true};
+  if(useWeb){
+    body.tools=[{type:'web_search_20250305',name:'web_search',max_uses:3}];
+  }
+  let acc='';
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify(body)
+    });
+    if(!r.ok){
+      const errText=await r.text();
+      console.error('Anthropic error:',errText);
+      // Fallback to non-streaming if streaming fails
+      const fallback=await askClaude(text);
+      onToken(fallback,true);
+      return fallback;
+    }
+    const reader=r.body.getReader();
+    const decoder=new TextDecoder();
+    let leftover='';
+    while(true){
+      const {done,value}=await reader.read();
+      if(done) break;
+      const chunk=leftover+decoder.decode(value,{stream:true});
+      const lines=chunk.split('\n');
+      leftover=lines.pop()||'';
+      for(const line of lines){
+        if(!line.startsWith('data:')) continue;
+        const data=line.slice(5).trim();
+        if(!data) continue;
+        try{
+          const ev=JSON.parse(data);
+          if(ev.type==='content_block_delta' && ev.delta?.type==='text_delta'){
+            acc+=ev.delta.text;
+            onToken(acc,false);
+          }
+        }catch(_){}
+      }
+    }
+    onToken(acc,true);
+    return acc||'No response, sir.';
+  }catch(e){
+    console.error('stream err',e);
+    const fb=await askClaude(text);
+    onToken(fb,true);
+    return fb;
+  }
+}
+
+async function askClaude(text){
+  const pinned=localStorage.getItem('cvolt_knowledge')||'';
+  const msgs=[];
+  if(pinned){msgs.push({role:'user',content:'PINNED CONTEXT:\n'+pinned}); msgs.push({role:'assistant',content:'Noted, sir.'})}
+  for(const m of history.slice(-16)) msgs.push({role:m.role==='user'?'user':'assistant',content:m.text});
+  msgs.push({role:'user',content:text});
+  if(!apiKey) return demoReply(text);
+  const model = DEEP_INTENT.test(text) ? 'claude-sonnet-4-5' : 'claude-haiku-4-5';
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model,max_tokens:1200,system:getSYS(),messages:msgs})
+    });
+    if(!r.ok){const e=await r.text(); console.error(e); return `Connection failed, sir.`}
+    const d=await r.json(); return d.content?.[0]?.text||'No response.';
+  }catch(e){return 'Connection issue, sir.'}
+}
+
+async function askClaudeFallback(text,msgs){
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:1000,system:getSYS(),messages:msgs})
+    });
+    if(!r.ok) return 'Brain offline, sir.';
+    const d=await r.json(); return d.content?.[0]?.text||'No response.';
+  }catch(e){return 'Connection issue.'}
+}
+
+function demoReply(text){
+  const t=text.toLowerCase();
+  if(/hello|hi|hey|good (morning|afternoon|evening)/.test(t)) return 'Good day, sir. Demo mode active — paste your Anthropic key in settings for full intelligence.';
+  if(/c-volt|cvolt|company/.test(t)) return 'C-VOLT — your Qatar electric mobility and battery-swap venture. Rafeeq pilot in finalisation. Add your API key for proper analysis.';
+  if(/rafeeq/.test(t)) return 'Rafeeq is your anchor pilot. LOI in finalisation. 925 QAR/bike/month. Recommend +20% for food vertical exclusivity, six months.';
+  if(/pilot/.test(t)) return '12 bikes, 2 stations, 30 days. CAPEX 209,000 QAR. 925 QAR/bike/month revenue.';
+  return 'Demo mode is limited, sir. Add your Anthropic API key in settings for full strategic analysis.';
+}
+
+// ========== VOICE: ELEVENLABS (PRIMARY) + BROWSER (FALLBACK) ==========
+let voices=[],selectedVoice=null,currentAudio=null;
+function loadVoices(){
+  voices=speechSynthesis.getVoices();
+  const brit=voices.filter(v=>/en[-_]?GB/i.test(v.lang));
+  const britM=brit.filter(v=>/(male|george|daniel|arthur|brian|oliver)/i.test(v.name));
+  selectedVoice=britM[0]||brit[0]||voices.find(v=>/en/i.test(v.lang))||voices[0];
+  updateHudVoice();
+}
+speechSynthesis.onvoiceschanged=loadVoices; loadVoices();
+
+function updateHudVoice(){
+  const el=document.getElementById('hudVoice');
+  if(elevenKey) el.textContent='ELEVENLABS · LIVE';
+  else if(selectedVoice) el.textContent=selectedVoice.name.toUpperCase().slice(0,18);
+  else el.textContent='NO VOICE';
+}
+
+async function speak(text){
+  speechSynthesis.cancel();
+  if(currentAudio){try{currentAudio.pause()}catch(_){} currentAudio=null}
+  if(elevenKey){
+    try{
+      const r=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVEN_VOICE}`,{
+        method:'POST',
+        headers:{'xi-api-key':elevenKey,'Content-Type':'application/json','Accept':'audio/mpeg'},
+        body:JSON.stringify({text,model_id:ELEVEN_MODEL,voice_settings:{stability:.55,similarity_boost:.8,style:.2,use_speaker_boost:true}})
+      });
+      if(!r.ok){console.error('ElevenLabs error',await r.text()); return speakBrowser(text)}
+      const blob=await r.blob(), url=URL.createObjectURL(blob);
+      const audio=new Audio(url); currentAudio=audio;
+      audio.playbackRate=VOICE_RATE;  // crisper, snappier delivery
+      audio.onplay=()=>{setState('speaking'); shock()};
+      audio.onended=()=>{setState(null); URL.revokeObjectURL(url); currentAudio=null; if(wakeMode) startContinuousListen()};
+      audio.onerror=()=>{setState(null); URL.revokeObjectURL(url); currentAudio=null; if(wakeMode) startContinuousListen()};
+      audio.play(); return;
+    }catch(e){console.error('ElevenLabs failed',e)}
+  }
+  speakBrowser(text);
+}
+
+function speakBrowser(text){
+  if(!selectedVoice){if(wakeMode) startContinuousListen(); return}
+  const u=new SpeechSynthesisUtterance(text);
+  u.voice=selectedVoice; u.rate=1.05; u.pitch=1;
+  u.onstart=()=>{setState('speaking'); shock()};
+  u.onend=()=>{setState(null); if(wakeMode) startContinuousListen()};
+  u.onerror=()=>{setState(null); if(wakeMode) startContinuousListen()};
+  speechSynthesis.speak(u);
+}
+
+// ========== LIVE APP LAUNCHER (intent parser) ==========
+const APPS={
+  'gmail':'https://mail.google.com','email':'https://mail.google.com','inbox':'https://mail.google.com',
+  'calendar':'https://calendar.google.com','my calendar':'https://calendar.google.com',
+  'drive':'https://drive.google.com','google drive':'https://drive.google.com',
+  'docs':'https://docs.google.com','google docs':'https://docs.google.com',
+  'sheets':'https://sheets.google.com','google sheets':'https://sheets.google.com',
+  'youtube':'https://youtube.com','whatsapp':'https://web.whatsapp.com','whatsapp web':'https://web.whatsapp.com',
+  'maps':'https://maps.google.com','google maps':'https://maps.google.com',
+  'linkedin':'https://linkedin.com','twitter':'https://twitter.com','x':'https://x.com',
+  'slack':'https://slack.com','notion':'https://notion.so','zoom':'https://zoom.us',
+  'chatgpt':'https://chatgpt.com','claude':'https://claude.ai','anthropic console':'https://console.anthropic.com',
+  'elevenlabs':'https://elevenlabs.io','github':'https://github.com','vercel':'https://vercel.com',
+  'instagram':'https://instagram.com','facebook':'https://facebook.com',
+  'rafeeq':'https://www.rafeeq.qa','snoonu':'https://snoonu.com','talabat':'https://talabat.com',
+  'woqod':'https://www.woqod.com','vmoto':'https://www.vmoto.com','wize':'https://wize.energy',
+  'qdb':'https://www.qdb.qa','kahramaa':'https://www.km.qa','tarsheed':'https://www.tarsheed.qa',
+  'cvolt':'https://voltqatar.com','c-volt':'https://voltqatar.com','our website':'https://voltqatar.com'
+};
+// ========== GOOGLE INTEGRATION (Gmail + Calendar) ==========
+let googleConnected=false, googleUser=null;
+
+async function checkGoogleStatus(){
+  try{
+    const r=await fetch('/api/auth/status',{credentials:'include'});
+    if(!r.ok) return;
+    const d=await r.json();
+    googleConnected=!!d.authenticated;
+    googleUser=d.authenticated?d:null;
+    updateGoogleHud();
+  }catch(_){}
+}
+function updateGoogleHud(){
+  const b=document.getElementById('googleBtn');
+  if(!b) return;
+  if(googleConnected){b.textContent='GOOGLE: '+(googleUser?.email?.split('@')[0]?.slice(0,12).toUpperCase()||'ON'); b.style.color='#4ADE80'}
+  else {b.textContent='GOOGLE: OFF'; b.style.color='#84B5C4'}
+}
+function googleAction(){
+  if(googleConnected){
+    if(!confirm('Disconnect Google ('+googleUser.email+')?')) return;
+    fetch('/api/auth/logout',{method:'POST',credentials:'include'}).then(()=>{googleConnected=false; googleUser=null; updateGoogleHud(); addMsg('jarvis','Google disconnected, sir.')});
+  } else {
+    window.location.href='/api/auth/google';
+  }
+}
+
+async function tryGoogleIntent(text){
+  if(!googleConnected) return null;
+  const t=text.toLowerCase();
+  // Morning briefing
+  if(/\b(morning briefing|brief me|daily brief|my briefing|brief|run me through (my )?day|what'?s (my )?day|status report)\b/i.test(t)){
+    return await runBriefing();
+  }
+  // Read email
+  if(/\b(read (my )?(email|emails|inbox|mail)|check (my )?(email|inbox|mail|gmail)|any new emails|unread emails|summari[sz]e (my )?(email|inbox))\b/i.test(t)){
+    return await runEmailSummary();
+  }
+  // Calendar today
+  if(/\b(what'?s on (my )?(calendar|schedule|day) today|today'?s (calendar|schedule|events|meetings)|what'?s on today|today'?s plan|my schedule today|my calendar)\b/i.test(t)){
+    return await runCalendarToday();
+  }
+  // Calendar week
+  if(/\b(this week|week ahead|upcoming events|next 7 days|week'?s schedule|my week)\b/i.test(t)){
+    return await runCalendarWeek();
+  }
+  return null;
+}
+
+function fmtEvent(e){
+  if(e.isAllDay) return `all day: ${e.title}`;
+  const s=new Date(e.start);
+  const time=s.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Asia/Qatar'});
+  return `${time} — ${e.title}${e.location?' ('+e.location+')':''}`;
+}
+
+async function runEmailSummary(){
+  setState('thinking');
+  try{
+    const r=await fetch('/api/gmail/summary',{credentials:'include'});
+    if(!r.ok){setState(null); return 'Email fetch failed, sir.'}
+    const d=await r.json();
+    const ctx=`Email summary fetched at ${new Date().toLocaleString('en-GB')}:\nUnread: ${d.unreadCount}\nReceived in last 24h: ${d.recentCount}\n\nTop messages:\n`+d.messages.slice(0,10).map(m=>`- ${m.unread?'[UNREAD] ':''}${m.from.replace(/<.*>/,'').trim()} — "${m.subject}" — ${m.snippet.slice(0,140)}`).join('\n');
+    // Hand off to Claude to summarise like JARVIS
+    setState('thinking');
+    const reply=await askClaude('Brief me on my email. Use this raw data: \n\n'+ctx);
+    setState(null);
+    return reply;
+  }catch(e){setState(null); return 'Email check failed: '+e.message}
+}
+
+async function runCalendarToday(){
+  setState('thinking');
+  try{
+    const r=await fetch('/api/calendar/today',{credentials:'include'});
+    if(!r.ok){setState(null); return 'Calendar fetch failed, sir.'}
+    const d=await r.json();
+    if(d.events.length===0){setState(null); return 'Nothing on the calendar today, sir.'}
+    const list=d.events.map(fmtEvent).join('. ');
+    setState(null);
+    return `Today, sir: ${list}.`;
+  }catch(e){setState(null); return 'Calendar error: '+e.message}
+}
+
+async function runCalendarWeek(){
+  setState('thinking');
+  try{
+    const r=await fetch('/api/calendar/week',{credentials:'include'});
+    if(!r.ok){setState(null); return 'Calendar fetch failed, sir.'}
+    const d=await r.json();
+    if(d.events.length===0){setState(null); return 'Nothing on this week, sir.'}
+    const byDay={};
+    for(const e of d.events){
+      const day=new Date(e.start).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+      (byDay[day]=byDay[day]||[]).push(e);
+    }
+    const ctx='This week:\n'+Object.entries(byDay).map(([day,evs])=>day+': '+evs.map(fmtEvent).join('; ')).join('\n');
+    const reply=await askClaude('Brief me on my week ahead. Be concise. Data:\n\n'+ctx);
+    setState(null);
+    return reply;
+  }catch(e){setState(null); return 'Week fetch failed: '+e.message}
+}
+
+async function runBriefing(){
+  setState('thinking');
+  try{
+    const r=await fetch('/api/briefing',{credentials:'include'});
+    if(!r.ok){setState(null); return 'Briefing failed, sir.'}
+    const d=await r.json();
+    const ctx=`MORNING BRIEFING DATA (generated ${new Date(d.generatedAt).toLocaleString('en-GB')}):\n\n`+
+      `EMAIL: ${d.email.unreadCount} unread, ${d.email.recentCount} in last 24h.\n`+
+      'Top:\n'+d.email.topMessages.slice(0,8).map(m=>`- ${m.unread?'[U] ':''}${m.from.replace(/<.*>/,'').trim()} — "${m.subject}" — ${m.snippet.slice(0,100)}`).join('\n')+
+      `\n\nCALENDAR TODAY (${d.calendar.today.length}):\n`+(d.calendar.today.map(fmtEvent).join('\n')||'(nothing)')+
+      `\n\nUPCOMING (next 7 days, ${d.calendar.upcoming.length}):\n`+(d.calendar.upcoming.slice(0,8).map(e=>{const day=new Date(e.start).toLocaleDateString('en-GB',{weekday:'short'}); return day+' '+fmtEvent(e)}).join('\n')||'(nothing)');
+    const reply=await askClaude('Deliver my morning briefing in the JARVIS voice. Be concise but cover: unread email count + flag anything urgent or strategic (C-VOLT, Rafeeq, Vmoto, Wize, WOQOD, regulators, investors). Then today\'s calendar in chronological order. Then a one-line look at the rest of the week. End with one strategic priority I should focus on today. Raw data:\n\n'+ctx);
+    setState(null);
+    return reply;
+  }catch(e){setState(null); return 'Briefing failed: '+e.message}
+}
+
+function tryLocal(text){
+  const t=text.toLowerCase().trim();
+  // Time / date
+  if(/^(what(?:'s| is) the )?(time|current time|time now)\b/.test(t)){
+    const n=new Date();
+    return {local:true,reply:`It's ${n.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})} Doha time, sir.`};
+  }
+  if(/^(what(?:'s| is) the )?(date|today|day)\b/.test(t)){
+    const n=new Date();
+    return {local:true,reply:`Today is ${n.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}, sir.`};
+  }
+  // Calculator — anything that's basically a math expression
+  const mathM=text.match(/^(?:what(?:'s| is)\s+|calculate\s+|compute\s+)?([\d\s\.\+\-\*\/x×÷\(\)%]+)\??$/i);
+  if(mathM){
+    let expr=mathM[1].replace(/x|×/g,'*').replace(/÷/g,'/').replace(/%/g,'/100');
+    if(/[\d][\s\.\+\-\*\/\(\)]+[\d]/.test(expr)){
+      try{
+        const result=Function('"use strict";return ('+expr+')')();
+        if(typeof result==='number'&&isFinite(result)){
+          return {local:true,reply:`That's ${result.toLocaleString('en-GB',{maximumFractionDigits:4})}, sir.`};
+        }
+      }catch(_){}
+    }
+  }
+  // Currency conversion — "X QAR to USD"
+  const fxM=text.match(/(\d[\d,\.]*)\s*(qar|usd|eur|aed|sar|gbp|inr)\s*(?:to|in)\s*(qar|usd|eur|aed|sar|gbp|inr)/i);
+  if(fxM){
+    // Static rates (approx June 2026 — JARVIS notes this)
+    const rates={qar:0.275,usd:1.0,eur:1.08,aed:0.272,sar:0.267,gbp:1.27,inr:0.012};
+    const amt=parseFloat(fxM[1].replace(/,/g,''));
+    const from=fxM[2].toLowerCase(), to=fxM[3].toLowerCase();
+    const usd=amt*rates[from], converted=usd/rates[to];
+    return {local:true,reply:`Approximately ${converted.toLocaleString('en-GB',{maximumFractionDigits:2})} ${to.toUpperCase()}, sir. (Indicative rate — check live for transactions.)`};
+  }
+  return null;
+}
+
+function tryLaunch(text){
+  const t=text.toLowerCase().trim();
+  // "open X", "go to X", "launch X", "show me X", "pull up X", "load X"
+  const m=t.match(/(?:open|go to|launch|show me|pull up|load|navigate to|visit)\s+(?:the\s+|my\s+)?([a-z0-9 \-]+?)(?:\s+(?:please|now|sir|jarvis))?\s*[.?!]?$/i);
+  if(m){
+    const target=m[1].trim();
+    // exact match
+    if(APPS[target]) return {url:APPS[target],name:target};
+    // partial match
+    for(const k of Object.keys(APPS)) if(target.includes(k)||k.includes(target)) return {url:APPS[k],name:k};
+    // search fallback
+    return {url:'https://google.com/search?q='+encodeURIComponent(target),name:target,search:true};
+  }
+  // "search for X" / "google X"
+  const s=t.match(/(?:search (?:for |the web for )?|google )(.+?)\s*[.?!]?$/i);
+  if(s) return {url:'https://google.com/search?q='+encodeURIComponent(s[1]),name:s[1],search:true};
+  // "play X" / "play X on youtube"
+  const p=t.match(/play (.+?)(?: on youtube)?\s*[.?!]?$/i);
+  if(p) return {url:'https://youtube.com/results?search_query='+encodeURIComponent(p[1]),name:p[1],play:true};
+  // "email X" → opens gmail compose
+  const e=t.match(/(?:email|send (?:an? )?email to|write (?:an? )?email to) (.+?)\s*[.?!]?$/i);
+  if(e){
+    const to=e[1].includes('@')?e[1]:'';
+    return {url:`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(to)}`,name:'compose to '+e[1],email:true};
+  }
+  return null;
+}
+
+// ========== SPEECH RECOGNITION — HYBRID: BROWSER (WAKE) + ELEVENLABS SCRIBE (COMMAND) ==========
+// Wake word detection runs cheaply on browser SR.
+// Once awake, we record audio via MediaRecorder and send to ElevenLabs Scribe for 95%+ accuracy.
+// Falls back to browser SR if ElevenLabs key not set.
+
+let mediaRec=null, recordedChunks=[], recordingStream=null, isRecording=false, audioCtx=null, analyser=null;
+let hasSpoken=false, silenceStart=null, recStartTime=0;
+
+async function startScribeRecording(){
+  if(isRecording) return;
+  // Don't start while JARVIS is speaking — prevent feedback loop
+  if(state.speaking){
+    setTimeout(()=>startScribeRecording(), 400); return;
+  }
+  if(!elevenKey){return startBrowserCapture()}
+  try{
+    // Always get a fresh stream — old streams cause "static"
+    if(recordingStream){
+      try{recordingStream.getTracks().forEach(t=>t.stop())}catch(_){}
+      recordingStream=null;
+    }
+    recordingStream=await navigator.mediaDevices.getUserMedia({audio:{
+      echoCancellation:true, noiseSuppression:true, autoGainControl:true,
+      sampleRate:16000, channelCount:1
+    }});
+    recordedChunks=[];
+    // Pick a mimeType the browser supports
+    let mime='audio/webm;codecs=opus';
+    if(!MediaRecorder.isTypeSupported(mime)) mime='audio/webm';
+    if(!MediaRecorder.isTypeSupported(mime)) mime='';
+    mediaRec=mime ? new MediaRecorder(recordingStream,{mimeType:mime}) : new MediaRecorder(recordingStream);
+    mediaRec.ondataavailable=e=>{if(e.data.size>0) recordedChunks.push(e.data)};
+    mediaRec.onstop=()=>processScribeRecording();
+    mediaRec.start(250);  // emit chunks every 250ms
+    isRecording=true; hasSpoken=false; silenceStart=null; recStartTime=performance.now();
+    setState('listening');
+    setupVAD();
+    // Hard stop after 15s max
+    setTimeout(()=>{if(isRecording) stopScribeRecording()}, 15000);
+    // No-speech timeout — if user doesn't speak in 6s, abort silently
+    setTimeout(()=>{if(isRecording&&!hasSpoken){isRecording=false; try{mediaRec.stop()}catch(_){} setState(null); recordedChunks=[]}}, 6000);
+  }catch(e){
+    console.error('Mic access failed',e);
+    addMsg('jarvis','Microphone access denied. Click the lock icon in your address bar and Allow microphone.');
+    setState(null);
+  }
+}
+
+function setupVAD(){
+  if(!recordingStream) return;
+  try{
+    // Fresh audio context each time — leaked contexts cause static
+    if(audioCtx){try{audioCtx.close()}catch(_){}}
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    const src=audioCtx.createMediaStreamSource(recordingStream);
+    analyser=audioCtx.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=0.8;
+    src.connect(analyser);
+    const buf=new Uint8Array(analyser.frequencyBinCount);
+    const SPEECH_THRESHOLD=8;   // higher = need louder voice to register
+    const SILENCE_AFTER=1700;   // ms of silence after speech ends → stop
+    const check=()=>{
+      if(!isRecording) return;
+      analyser.getByteTimeDomainData(buf);
+      let sum=0;
+      for(let i=0;i<buf.length;i++){const d=buf[i]-128; sum+=d*d}
+      const rms=Math.sqrt(sum/buf.length);
+      if(rms>SPEECH_THRESHOLD){
+        // Voice detected
+        if(!hasSpoken){hasSpoken=true}
+        silenceStart=null;
+      } else if(hasSpoken){
+        // Silence after speech
+        if(silenceStart===null) silenceStart=performance.now();
+        else if(performance.now()-silenceStart>SILENCE_AFTER){
+          stopScribeRecording(); return;
+        }
+      }
+      requestAnimationFrame(check);
+    };
+    check();
+  }catch(e){console.warn('VAD setup failed',e)}
+}
+
+function stopScribeRecording(){
+  if(!isRecording||!mediaRec) return;
+  isRecording=false;
+  try{mediaRec.stop()}catch(_){}
+}
+
+async function processScribeRecording(){
+  // Cleanup stream regardless
+  try{recordingStream&&recordingStream.getTracks().forEach(t=>t.stop())}catch(_){}
+  recordingStream=null;
+  try{audioCtx&&audioCtx.close()}catch(_){}
+  audioCtx=null;
+  if(recordedChunks.length===0){setState(null); return}
+  if(!hasSpoken){setState(null); recordedChunks=[]; return}  // no actual speech captured
+  const blob=new Blob(recordedChunks,{type:mediaRec&&mediaRec.mimeType?mediaRec.mimeType:'audio/webm'});
+  if(blob.size<3000){setState(null); recordedChunks=[]; return}  // too short — likely just noise
+  setState('thinking');
+  try{
+    const fd=new FormData();
+    fd.append('file',blob,'audio.webm');
+    fd.append('model_id','scribe_v1');
+    const r=await fetch('https://api.elevenlabs.io/v1/speech-to-text',{
+      method:'POST',
+      headers:{'xi-api-key':elevenKey},
+      body:fd
+    });
+    if(!r.ok){
+      const errText=await r.text();
+      console.error('Scribe error',errText);
+      setState(null);
+      if(r.status===401){addMsg('jarvis','ElevenLabs key rejected for STT, sir. Falling back.')}
+      else if(r.status===403){addMsg('jarvis','ElevenLabs plan does not include Scribe STT. Switching to browser.')}
+      return startBrowserCapture();
+    }
+    const d=await r.json();
+    const text=(d.text||'').trim();
+    if(!text||text.length<2){setState(null); return}
+    document.getElementById('textInput').value='';
+    sendMessage(text);
+  }catch(e){
+    console.error('Scribe failed',e); setState(null);
+    addMsg('jarvis','STT failed — '+(e.message||'unknown'));
+  }
+  recordedChunks=[];
+}
+
+// Browser SR fallback (used only when ElevenLabs key not set)
+async function startBrowserCapture(){
+  if(!rec){addMsg('jarvis','Voice not supported, sir.'); return}
+  awake=true; setState('listening');
+  try{rec.stop()}catch(_){}
+  setTimeout(()=>{try{rec.start()}catch(_){}}, 200);
+  clearTimeout(awakeTimer); awakeTimer=setTimeout(()=>{
+    const t=document.getElementById('textInput').value.trim();
+    document.getElementById('textInput').value=''; awake=false;
+    if(t) sendMessage(t); else setState(null);
+  }, 5000);
+}
+
+// ========== WAKE WORD DETECTION (browser SR — light pattern match only) ==========
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null, wakeMode=localStorage.getItem('cvolt_wake')==='1', awake=false, awakeTimer=null;
+// Tolerant wake word — accepts common mishearings of "JARVIS"
+const WAKE=/\b(jarvis|jervis|jarves|jarvas|jurvis|jarviz|jarwis|travis|charvis|charles|service|hey jar?vis|hi jarvis|hello jarvis|wake up|ok jarvis|okay jarvis|yo jarvis|hey there|hey j[a-z\s]{1,4}vis|hey j[\s\.]?a[\s\.]?r[\s\.]?v[\s\.]?i[\s\.]?s|jarvis are you there|listen jarvis)\b/i;
+const SLEEP=/\b(go to sleep|sleep now|stand down|that's all jarvis|goodbye jarvis|stop listening|thanks jarvis that's all|dismissed)\b/i;
+
+if(SR){
+  rec=new SR(); rec.continuous=true; rec.interimResults=true; rec.lang='en-GB';
+  let buf='';
+  rec.onstart=()=>{buf=''; if(!awake) setState(null)};
+  rec.onresult=e=>{
+    let interim='', finalChunk='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const tx=e.results[i][0].transcript;
+      if(e.results[i].isFinal) finalChunk+=tx+' '; else interim+=tx;
+    }
+    const combined=(buf+finalChunk+interim).trim();
+    if(awake && SLEEP.test(combined)){awake=false; setState(null); document.getElementById('textInput').value=''; addMsg('jarvis','Standing by, sir.'); speak('Standing by, sir.'); return}
+    if(!awake){
+      if(WAKE.test(combined)){
+        // Wake fired — give user 700ms to finish saying the wake word, THEN record
+        awake=true; buf=''; shock();
+        try{rec.stop()}catch(_){}
+        setState('listening');
+        setTimeout(()=>startScribeRecording(),700);
+      }
+      return;
+    }
+    // already awake — Scribe handles capture, browser SR is paused
+    if(finalChunk) buf+=finalChunk;
+  };
+  rec.onend=()=>{if(wakeMode){try{rec.start()}catch(_){}}};
+  rec.onerror=e=>{
+    if(e.error==='not-allowed'){addMsg('jarvis','Microphone permission denied, sir. Allow it in browser settings.'); wakeMode=false; localStorage.setItem('cvolt_wake','0'); updateWakeHud()}
+    else if(e.error==='no-speech'||e.error==='aborted'){}
+    else if(e.error==='audio-capture'){addMsg('jarvis','No microphone detected, sir.')}
+    else console.warn('SR error',e.error);
+  };
+}
+
+function startContinuousListen(){if(!rec||!wakeMode) return; try{rec.start()}catch(_){}}
+
+function setWakeMode(on){
+  wakeMode=on; localStorage.setItem('cvolt_wake',on?'1':'0'); updateWakeHud();
+  if(on){startContinuousListen(); addMsg('jarvis','Wake mode active, sir. Say "Hey JARVIS" any time.')}
+  else{awake=false; try{rec&&rec.stop()}catch(_){} setState(null); addMsg('jarvis','Wake mode disabled.')}
+}
+function updateWakeHud(){
+  const el=document.getElementById('wakeBtn');
+  if(el){el.textContent=wakeMode?'WAKE: ON':'WAKE: OFF'; el.style.color=wakeMode?'#4ADE80':'#84B5C4'}
+}
+
+function toggleListen(){
+  if(state.speaking){speechSynthesis.cancel(); if(currentAudio)try{currentAudio.pause()}catch(_){} setState(null); return}
+  if(state.thinking) return;
+  if(isRecording){stopScribeRecording(); return}
+  // Push-to-talk → use accurate Scribe if key set, else browser SR
+  if(elevenKey){
+    // Pause wake mode briefly
+    awake=true;
+    try{rec&&rec.stop()}catch(_){}
+    startScribeRecording();
+  } else {
+    if(!rec){addMsg('jarvis','Voice input not supported. Try Chrome or Edge.'); return}
+    startBrowserCapture();
+  }
+}
+
+// ========== STATE ==========
+function setState(s){
+  state.listening=s==='listening'; state.thinking=s==='thinking'; state.speaking=s==='speaking';
+  const stat=document.getElementById('coreStatus'), mic=document.getElementById('micBtn'), hud=document.getElementById('hudStatus');
+  stat.className='core-status'+(s?' '+s:'');
+  if(mic) mic.classList.toggle('active',s==='listening');
+  if(s==='listening'){stat.textContent='LISTENING'; if(hud)hud.textContent='AUDIO INPUT ACTIVE'}
+  else if(s==='thinking'){stat.textContent='PROCESSING'; if(hud)hud.textContent='NEURAL COMPUTE'}
+  else if(s==='speaking'){stat.textContent='RESPONDING'; if(hud)hud.textContent='AUDIO OUTPUT'}
+  else{stat.textContent=wakeMode?'STANDBY · WAKE READY':'ONLINE'; if(hud)hud.textContent='NEURAL LINK ACTIVE';
+    // After a turn finishes, awake=false and we restart wake-word SR for next time
+    awake=false;
+    if(wakeMode && rec){setTimeout(()=>{try{rec.start()}catch(_){}}, 400)}
+  }
+}
+
+// ========== MESSAGES ==========
+function addMsg(role,text){history.push({role,text,t:Date.now()}); saveHistory(); renderTranscript()}
+
+// Parse [[chart:{...}]] directives
+function extractChart(text){
+  const m=text.match(/\[\[chart:(\{[\s\S]*?\})\]\]/);
+  if(!m) return {clean:text,chart:null};
+  try{return {clean:text.replace(m[0],'').trim(),chart:JSON.parse(m[1])}}
+  catch(_){return {clean:text,chart:null}}
+}
+
+let chartIdCounter=0;
+function renderChart(parent,spec){
+  if(!window.Chart) return;
+  const wrap=document.createElement('div');
+  wrap.style.cssText='margin:12px 0;padding:18px 16px 14px;background:linear-gradient(135deg,rgba(0,12,22,.85),rgba(5,11,22,.75));border:1px solid rgba(0,229,255,.4);border-radius:2px;height:260px;position:relative;box-shadow:0 0 24px rgba(0,229,255,.15),inset 0 0 12px rgba(0,229,255,.05)';
+  // HUD corner accents
+  const cornerHTML='<div style="position:absolute;top:0;left:0;width:14px;height:1px;background:#00E5FF;box-shadow:0 0 6px #00E5FF"></div><div style="position:absolute;top:0;left:0;width:1px;height:14px;background:#00E5FF;box-shadow:0 0 6px #00E5FF"></div><div style="position:absolute;bottom:0;right:0;width:14px;height:1px;background:#00E5FF;box-shadow:0 0 6px #00E5FF"></div><div style="position:absolute;bottom:0;right:0;width:1px;height:14px;background:#00E5FF;box-shadow:0 0 6px #00E5FF"></div>';
+  wrap.insertAdjacentHTML('beforeend',cornerHTML);
+  const can=document.createElement('canvas');
+  can.id='chart_'+(++chartIdCounter);
+  wrap.appendChild(can);
+  parent.appendChild(wrap);
+  setTimeout(()=>{
+    try{
+      new Chart(can.getContext('2d'),{
+        type:spec.type||'bar',
+        data:{labels:spec.labels||[],datasets:(spec.datasets||[]).map((d,i)=>({
+          ...d,
+          backgroundColor:d.backgroundColor||['rgba(0,229,255,.55)','rgba(255,179,71,.55)','rgba(74,222,128,.55)','rgba(255,61,92,.55)','rgba(132,181,196,.55)'][i%5],
+          borderColor:d.borderColor||['#00E5FF','#FFB347','#4ADE80','#FF3D5C','#84B5C4'][i%5],
+          borderWidth:1.5
+        }))},
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{
+            title:{display:!!spec.title,text:(spec.title||'').toUpperCase(),color:'#00E5FF',font:{size:11,family:'monospace',weight:'bold'},padding:{bottom:10}},
+            legend:{labels:{color:'#84B5C4',font:{size:10,family:'monospace'},boxWidth:14,padding:8}},
+            tooltip:{backgroundColor:'rgba(0,12,22,.95)',titleColor:'#00E5FF',bodyColor:'#E6F8FF',borderColor:'rgba(0,229,255,.5)',borderWidth:1,titleFont:{family:'monospace',size:11},bodyFont:{family:'monospace',size:11}}
+          },
+          scales:(spec.type==='pie'||spec.type==='doughnut'||spec.type==='radar')?{}:{
+            x:{ticks:{color:'#84B5C4',font:{size:9,family:'monospace'}},grid:{color:'rgba(0,229,255,.12)',drawTicks:false},border:{color:'rgba(0,229,255,.4)'}},
+            y:{ticks:{color:'#84B5C4',font:{size:9,family:'monospace'}},grid:{color:'rgba(0,229,255,.12)',drawTicks:false},border:{color:'rgba(0,229,255,.4)'}}
+          }
+        }
+      });
+    }catch(e){console.error('chart render error',e); wrap.innerHTML='<div style="color:#FF3D5C;font-size:11px">Chart render failed</div>'}
+  },50);
+}
+
+function renderTranscript(){
+  const c=document.getElementById('transcript');
+  if(!history.length){c.innerHTML='<div class="transcript-empty">Awaiting input.<br/>Mic, type, or say "Hey JARVIS".<br/><br/>Try: "Open Gmail" - "Latest EV news" - "Chart petrol vs C-VOLT cost per km" - "What\'s 100 USD to QAR"</div>'; return}
+  c.innerHTML='';
+  history.slice(-20).forEach(m=>{
+    const d=document.createElement('div'); d.className='msg '+(m.role==='user'?'user':'jarvis')+(m.streaming?' streaming':'');
+    d.innerHTML='<div class="who">'+(m.role==='user'?'NASSER':'JARVIS')+'</div><div class="text"></div>';
+    if(m.role==='jarvis'){
+      const ex=extractChart(m.text);
+      d.querySelector('.text').textContent=ex.clean||(m.streaming?'':'(chart in full screen)');
+    } else d.querySelector('.text').textContent=m.text;
+    c.appendChild(d);
+  });
+  c.scrollTop=c.scrollHeight;
+}
+renderTranscript();
+
+let fullChartInstance=null;
+function openFullChart(spec, caption){
+  if(!window.Chart) return;
+  const overlay=document.getElementById('chartFull');
+  const titleEl=document.getElementById('chartFullTitle');
+  const capEl=document.getElementById('chartFullCaption');
+  const can=document.getElementById('chartFullCanvas');
+  titleEl.textContent=(spec.title||'Data').toUpperCase();
+  capEl.textContent='';
+  if(fullChartInstance){try{fullChartInstance.destroy()}catch(_){}}
+  overlay.classList.add('show');
+  setTimeout(()=>{
+    try{
+      fullChartInstance=new Chart(can.getContext('2d'),{
+        type:spec.type||'bar',
+        data:{labels:spec.labels||[],datasets:(spec.datasets||[]).map((d,i)=>({
+          ...d,
+          backgroundColor:d.backgroundColor||['rgba(0,229,255,.55)','rgba(255,179,71,.55)','rgba(74,222,128,.55)','rgba(255,61,92,.55)','rgba(132,181,196,.55)'][i%5],
+          borderColor:d.borderColor||['#00E5FF','#FFB347','#4ADE80','#FF3D5C','#84B5C4'][i%5],
+          borderWidth:2, tension:0.35
+        }))},
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          animation:{duration:1400,easing:'easeOutCubic'},
+          plugins:{
+            legend:{labels:{color:'#84B5C4',font:{size:12,family:'monospace'},boxWidth:18,padding:14}},
+            tooltip:{backgroundColor:'rgba(0,12,22,.95)',titleColor:'#00E5FF',bodyColor:'#E6F8FF',borderColor:'rgba(0,229,255,.5)',borderWidth:1}
+          },
+          scales:(spec.type==='pie'||spec.type==='doughnut'||spec.type==='radar')?{}:{
+            x:{ticks:{color:'#84B5C4',font:{size:11,family:'monospace'}},grid:{color:'rgba(0,229,255,.12)'},border:{color:'rgba(0,229,255,.4)'}},
+            y:{ticks:{color:'#84B5C4',font:{size:11,family:'monospace'}},grid:{color:'rgba(0,229,255,.12)'},border:{color:'rgba(0,229,255,.4)'},beginAtZero:true}
+          }
+        }
+      });
+    }catch(e){console.error('fullchart err',e)}
+    if(caption){streamCaption(capEl, caption)}
+  }, 400);
+}
+function streamCaption(el, text){
+  el.textContent=''; let i=0;
+  const tick=()=>{if(i<text.length){el.textContent+=text[i]; i++; setTimeout(tick, 18)}};
+  tick();
+}
+function closeFullChart(){
+  const overlay=document.getElementById('chartFull');
+  overlay.classList.remove('show');
+  if(fullChartInstance){setTimeout(()=>{try{fullChartInstance.destroy()}catch(_){} fullChartInstance=null}, 500)}
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('chartFull').classList.contains('show')) closeFullChart()});
+
+async function sendMessage(text){
+  addMsg('user',text);
+  // Google intents — gmail, calendar, briefing
+  const goog=await tryGoogleIntent(text);
+  if(goog){addMsg('jarvis',goog); speak(goog); return}
+  const loc=tryLocal(text);
+  if(loc){addMsg('jarvis',loc.reply); speak(loc.reply); return}
+  const launch=tryLaunch(text);
+  if(launch){
+    let msg;
+    if(launch.email) msg='Opening Gmail compose, sir.';
+    else if(launch.search) msg='Searching the web for '+launch.name+', sir.';
+    else if(launch.play) msg='Pulling up '+launch.name+' on YouTube, sir.';
+    else msg='Opening '+launch.name+', sir.';
+    addMsg('jarvis',msg);
+    try{window.open(launch.url,'_blank','noopener,noreferrer')}catch(_){}
+    speak(msg); return;
+  }
+  setState('thinking');
+  const streamIdx=history.push({role:'jarvis',text:'',t:Date.now(),streaming:true})-1;
+  saveHistory(); renderTranscript();
+  const reply=await askClaudeStream(text,(acc,done)=>{
+    history[streamIdx].text=acc;
+    history[streamIdx].streaming=!done;
+    renderTranscript();
+  });
+  saveHistory();
+  setState(null);
+  const ex=extractChart(reply);
+  if(ex.chart) openFullChart(ex.chart, ex.clean);
+  speak(ex.clean||(ex.chart?'Chart loaded, sir.':reply));
+}
+
+function sendText(){const inp=document.getElementById('textInput'); const t=inp.value.trim(); if(!t) return; inp.value=''; sendMessage(t)}
+document.getElementById('textInput').addEventListener('keydown',e=>{if(e.key==='Enter') sendText()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&state.speaking){speechSynthesis.cancel(); if(currentAudio)try{currentAudio.pause()}catch(_){} setState(null)}});
+
+function saveKeyAndStart(){
+  const k=document.getElementById('apikey').value.trim();
+  const ek=document.getElementById('elevenkey').value.trim();
+  if(k){apiKey=k; localStorage.setItem(KEY_APIKEY,k)}
+  if(ek){elevenKey=ek; localStorage.setItem(KEY_ELEVEN,ek); updateHudVoice()}
+  document.getElementById('modal').classList.add('hidden');
+  setTimeout(()=>speak('Good day, sir. JARVIS online. How may I assist?'),600);
+}
+function startWithoutKey(){document.getElementById('modal').classList.add('hidden'); setTimeout(()=>speak('Good day, sir. Demo mode active.'),600)}
+function openSettings(){
+  const nk=prompt('Anthropic key:',apiKey);
+  if(nk!==null){apiKey=nk.trim(); localStorage.setItem(KEY_APIKEY,apiKey)}
+  const ne=prompt('ElevenLabs key (voice + Scribe STT):',elevenKey);
+  if(ne!==null){elevenKey=ne.trim(); localStorage.setItem(KEY_ELEVEN,elevenKey); updateHudVoice()}
+  const nv=prompt('ElevenLabs Voice ID:',localStorage.getItem('cvolt_voiceid')||'JBFqnCBsd6RMkjVDRZzb');
+  if(nv!==null && nv.trim()){localStorage.setItem('cvolt_voiceid',nv.trim()); addMsg('jarvis','Voice updated. Reload to apply.')}
+  addMsg('jarvis','Settings updated. Brain: '+(apiKey?'Claude Sonnet 4.5 + Haiku 4.5':'DEMO')+'. Voice: '+(elevenKey?'ElevenLabs':'browser')+'. Google: '+(googleConnected?'live':'off')+'.');
+}
+function clearMemory(){if(confirm('Clear conversation history?')){history=[]; saveHistory(); renderTranscript()}}
+
+let deferredInstall=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault(); deferredInstall=e; const b=document.getElementById('installBtn'); if(b) b.style.display='inline-flex'});
+async function installPWA(){
+  if(!deferredInstall){addMsg('jarvis','Open in Chrome/Edge, click install icon in address bar. iPhone: Share -> Add to Home Screen.'); return}
+  deferredInstall.prompt();
+  const {outcome}=await deferredInstall.userChoice;
+  if(outcome==='accepted') addMsg('jarvis','Installed, sir.');
+  deferredInstall=null;
+  const b=document.getElementById('installBtn'); if(b) b.style.display='none';
+}
+if('serviceWorker' in navigator){window.addEventListener('load',()=>{navigator.serviceWorker.register('service-worker.js').catch(()=>{})})}
+
+function pinKnowledge(){
+  const cur=localStorage.getItem('cvolt_knowledge')||'';
+  const v=prompt('Pinned knowledge (always in context). Blank to clear.\nCurrent: '+cur.length+' chars',cur);
+  if(v===null) return;
+  localStorage.setItem('cvolt_knowledge',v.trim());
+  addMsg('jarvis','Knowledge updated. '+v.trim().length+' chars in permanent context.');
+}
+
+async function readPDF(file){
+  if(!window.pdfjsLib) throw new Error('PDF library not loaded');
+  const buf=await file.arrayBuffer();
+  const pdf=await pdfjsLib.getDocument({data:buf}).promise;
+  let text='';
+  const maxPages=Math.min(pdf.numPages,80);
+  for(let i=1;i<=maxPages;i++){
+    const page=await pdf.getPage(i);
+    const content=await page.getTextContent();
+    text+='\n--- Page '+i+' ---\n'+content.items.map(it=>it.str).join(' ');
+  }
+  if(pdf.numPages>maxPages) text+='\n[Truncated at page '+maxPages+' of '+pdf.numPages+']';
+  return text;
+}
+
+async function handleFile(ev){
+  const f=ev.target.files[0]; if(!f) return;
+  addMsg('user','[Uploaded: '+f.name+']');
+  setState('thinking');
+  try{
+    let content;
+    if(f.type==='application/pdf'||f.name.toLowerCase().endsWith('.pdf')) content=await readPDF(f);
+    else content=await f.text();
+    const MAX=120000;
+    if(content.length>MAX) content=content.slice(0,MAX)+'\n[truncated]';
+    history.push({role:'user',text:'[File: '+f.name+']\n\n'+content,t:Date.now()});
+    saveHistory();
+    setState(null);
+    sendMessage('I just uploaded '+f.name+'. Summarise the key points briefly, sir.');
+  }catch(e){addMsg('jarvis','File read failed: '+e.message); setState(null)}
+  ev.target.value='';
+}
+
+let cloneRec=null, cloneChunks=[], cloneStream=null;
+async function startVoiceClone(){
+  if(!elevenKey){addMsg('jarvis','ElevenLabs key required.'); return}
+  const name=prompt('Name this voice:','My Voice');
+  if(!name) return;
+  alert('Recording starts for 60 sec. Speak naturally. Requires ElevenLabs Creator plan ($5/mo).');
+  try{
+    cloneStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    cloneChunks=[];
+    cloneRec=new MediaRecorder(cloneStream,{mimeType:'audio/webm'});
+    cloneRec.ondataavailable=e=>{if(e.data.size>0) cloneChunks.push(e.data)};
+    cloneRec.onstop=()=>uploadClone(name);
+    cloneRec.start();
+    addMsg('jarvis','Recording 60 seconds, sir.');
+    setState('listening');
+    setTimeout(()=>{if(cloneRec&&cloneRec.state!=='inactive') cloneRec.stop()}, 60000);
+  }catch(e){addMsg('jarvis','Mic failed: '+e.message); setState(null)}
+}
+async function uploadClone(name){
+  setState('thinking');
+  const blob=new Blob(cloneChunks,{type:'audio/webm'});
+  try{cloneStream.getTracks().forEach(t=>t.stop())}catch(_){}
+  try{
+    const fd=new FormData();
+    fd.append('name',name);
+    fd.append('files',blob,'sample.webm');
+    const r=await fetch('https://api.elevenlabs.io/v1/voices/add',{method:'POST',headers:{'xi-api-key':elevenKey},body:fd});
+    if(!r.ok){addMsg('jarvis','Clone failed: '+(r.status===403?'needs Creator plan':'status '+r.status)); setState(null); return}
+    const d=await r.json();
+    if(d.voice_id){localStorage.setItem('cvolt_voiceid',d.voice_id); addMsg('jarvis','Voice "'+name+'" cloned. Reload to activate.')}
+    setState(null);
+  }catch(e){addMsg('jarvis','Clone error: '+e.message); setState(null)}
+}
+
+if(apiKey||localStorage.getItem('cvolt_seen')) document.getElementById('modal').classList.add('hidden');
+localStorage.setItem('cvolt_seen','1');
+updateHudVoice(); updateWakeHud();
+if(wakeMode) setTimeout(()=>{try{rec&&rec.start()}catch(_){}}, 1200);
+
+checkGoogleStatus().then(()=>{
+  if(new URLSearchParams(location.search).get('connected')==='1'){
+    addMsg('jarvis','Google connected, sir. Gmail and Calendar are live.');
+    window.history.replaceState({}, '', location.pathname);
+    setTimeout(()=>speak('Google connected, sir.'),500);
+  }
+});
+setInterval(checkGoogleStatus, 5*60*1000);
+</script>
+</body>
+</html>
