@@ -1021,10 +1021,14 @@ function tryRemember(text){
 // ========== BARGE-IN — interrupt JARVIS by saying stop/quiet/wait ==========
 function tryInterrupt(text){
   const t=text.toLowerCase().trim();
-  if(/^(stop|quiet|wait|shut up|pause|hold on|enough|silence|hold|stop talking|never mind|nevermind)[!.?]?$/i.test(t)){
+  if(/^(stop|quiet|wait|shut up|pause|hold on|enough|silence|hold|stop talking|never mind|nevermind|stop music|stop the music|stop playing|pause music|stop spotify|pause spotify|kill the music)[!.?]?$/i.test(t)){
     speechSynthesis.cancel();
     if(currentAudio){try{currentAudio.pause();currentAudio.currentTime=0}catch(_){}}
     setState(null);
+    // Also pause Spotify playback if connected
+    if(typeof spotifyConnected!=='undefined' && spotifyConnected){
+      fetch('/api/spotify/control?action=pause',{credentials:'include',method:'POST'}).catch(()=>{});
+    }
     return {reply:'Standing by, sir.'};
   }
   return null;
@@ -1701,14 +1705,4 @@ checkSpotifyStatus().then(()=>{
   if(new URLSearchParams(location.search).get('spotify')==='1'){
     addMsg('jarvis','Spotify connected, sir. Music control is live.');
     window.history.replaceState({}, '', location.pathname);
-    setTimeout(()=>speak('Spotify connected, sir.'),500);
-    setTimeout(()=>checkSpotifyStatus(), 800);
-  }
-  const sb=document.getElementById('spotifyBtn');
-  if(sb&&spotifyConnected){sb.textContent='SPOTIFY: ON'; sb.style.color='#4ADE80'}
-});
-setInterval(checkGoogleStatus, 5*60*1000);
-setInterval(checkSpotifyStatus, 5*60*1000);
-</script>
-</body>
-</html>
+    setTimeout(()=>speak('Spotify connected
