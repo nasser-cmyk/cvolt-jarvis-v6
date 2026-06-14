@@ -857,13 +857,17 @@ async function trySpotifyIntent(text){
     if(/youtube/i.test(text)) return null;
     try{
       const r=await fetch('/api/spotify/play?q='+encodeURIComponent(q),{credentials:'include',method:'POST'});
+      const d=await r.json().catch(()=>({}));
       if(!r.ok){
-        if(r.status===404) return `Couldn't find "${q}" on Spotify, sir.`;
-        return null;
+        if(r.status===401) return 'Spotify session expired, sir. Please reconnect via the Spotify button.';
+        if(r.status===404 && d.error==='not_found') return `Couldn't find "${q}" on Spotify, sir.`;
+        const errStr=JSON.stringify(d.error||'');
+        if(/NO_ACTIVE_DEVICE/i.test(errStr)) return 'No active Spotify device, sir. Open Spotify on your phone or PC, play any song for two seconds, then ask again.';
+        if(/Premium/i.test(errStr)) return 'Spotify Premium is required to control playback, sir. Without it I can only search.';
+        return 'Spotify playback failed, sir. '+(d.error||('Status '+r.status));
       }
-      const d=await r.json();
       return d.track ? `Playing ${d.track.name} by ${d.track.artist}, sir.` : `Playing ${q}, sir.`;
-    }catch(_){return null}
+    }catch(e){return 'Spotify request failed, sir: '+e.message}
   }
   return null;
 }
@@ -1695,13 +1699,12 @@ if(wakeMode) setTimeout(()=>{try{rec&&rec.start()}catch(_){}}, 1200);
 
 checkGoogleStatus().then(()=>{
   if(new URLSearchParams(location.search).get('connected')==='1'){
-    addMsg('jarvis','Google connected, sir. Gmail and Calendar are live.');
+    addMsg('jarvis','Google connected, sir. Gmail is live.');
     window.history.replaceState({}, '', location.pathname);
     setTimeout(()=>speak('Google connected, sir.'),500);
     setTimeout(()=>checkGoogleStatus(), 800);
   }
 });
-
 checkSpotifyStatus().then(()=>{
   if(new URLSearchParams(location.search).get('spotify')==='1'){
     addMsg('jarvis','Spotify connected, sir. Music control is live.');
