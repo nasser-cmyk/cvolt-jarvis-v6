@@ -1701,8 +1701,19 @@ checkGoogleStatus().then(()=>{
     setTimeout(()=>checkGoogleStatus(), 800);
   }
 });
+
 checkSpotifyStatus().then(()=>{
   if(new URLSearchParams(location.search).get('spotify')==='1'){
     addMsg('jarvis','Spotify connected, sir. Music control is live.');
     window.history.replaceState({}, '', location.pathname);
-    setTimeout(()=>speak('Spotify connected
+    setTimeout(()=>speak('Spotify connected, sir.'),500);
+    setTimeout(()=>checkSpotifyStatus(), 800);
+  }
+  const sb=document.getElementById('spotifyBtn');
+  if(sb&&spotifyConnected){sb.textContent='SPOTIFY: ON'; sb.style.color='#4ADE80'}
+});
+setInterval(checkGoogleStatus, 5*60*1000);
+setInterval(checkSpotifyStatus, 5*60*1000);
+</script>
+</body>
+</html>
