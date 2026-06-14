@@ -42,11 +42,26 @@ export default async function handler(req, res) {
       if (!t) return res.status(401).json({ error: 'not_connected' });
       const query = req.query.q;
       if (query) {
-        const search = await spotifyApi(t.accessToken, '/search?type=track&limit=1&q=' + encodeURIComponent(query));
-        const track = search.tracks?.items?.[0];
-        if (!track) return res.status(404).json({ error: 'not_found', query });
-        await spotifyApi(t.accessToken, '/me/player/play', { method: 'PUT', body: JSON.stringify({ uris: [track.uri] }) });
-        return res.status(200).json({ ok: true, track: { name: track.name, artist: track.artists.map(a=>a.name).join(', ') } });
+        // Get top 10 results, pick best match
+        const search = await spotifyApi(t.accessToken, '/search?type=track&limit=10&q=' + encodeURIComponent(query));
+        const tracks = (search.tracks?.items || []);
+        if (!tracks.length) return res.status(404).json({ error: 'not_found', query });
+        // Score each track by how many query words appear in name + artist
+        const normalize = s => s.toLowerCase().replace(/[^\w\s]/g,' ').replace(/\s+/g,' ').trim();
+        const queryWords = normalize(query).split(' ').filter(w => w.length > 1);
+        let best = tracks[0]; let bestScore = -1;
+        for (const tr of tracks) {
+          const haystack = normalize(tr.name + ' ' + tr.artists.map(a=>a.name).join(' '));
+          let score = 0;
+          for (const w of queryWords) if (haystack.includes(w)) score++;
+          // Bonus for original (not remix/cover/live)
+          if (!/remix|cover|live|karaoke|tribute|acoustic version/i.test(tr.name + ' ' + (tr.album?.name||''))) score += 0.5;
+          // Bonus for popularity
+          score += (tr.popularity || 0) / 200;
+          if (score > bestScore) { bestScore = score; best = tr; }
+        }
+        await spotifyApi(t.accessToken, '/me/player/play', { method: 'PUT', body: JSON.stringify({ uris: [best.uri] }) });
+        return res.status(200).json({ ok: true, track: { name: best.name, artist: best.artists.map(a=>a.name).join(', ') } });
       }
       await spotifyApi(t.accessToken, '/me/player/play', { method: 'PUT' });
       return res.status(200).json({ ok: true });
