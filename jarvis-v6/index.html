@@ -819,42 +819,51 @@ function spotifyConnect(){window.location.href='/api/spotify/auth'}
 
 async function trySpotifyIntent(text){
   const t=text.toLowerCase().trim();
-  // Pause / stop music
-  if(/^(pause|stop) (music|song|track|spotify|the music)\b/i.test(t)||/^(pause|stop)$/i.test(t)){
+  // Pause / stop music — ONLY exact phrases, not "stop X"
+  if(/^(pause|pause music|pause the music|pause spotify|stop music|stop the music|stop spotify|stop playing|stop the song)[!.?]?$/i.test(t)){
     if(!spotifyConnected) return null;
     try{await fetch('/api/spotify/control?action=pause',{credentials:'include',method:'POST'}); return 'Paused, sir.'}
     catch(_){return null}
   }
-  // Next track
-  if(/\b(next|skip|next (song|track|one))\b/i.test(t)){
+  // Next track — must be standalone
+  if(/^(next|skip|skip song|skip track|next song|next track|next one|skip ahead|skip this)[!.?]?$/i.test(t)){
     if(!spotifyConnected) return null;
     try{await fetch('/api/spotify/control?action=next',{credentials:'include',method:'POST'}); return 'Skipping ahead, sir.'}
     catch(_){return null}
   }
-  // Previous track
-  if(/\b(previous|back|last (song|track)|go back)\b/i.test(t)){
+  // Previous track — must be standalone, never matches "back" inside song titles
+  if(/^(previous|previous song|previous track|go back|skip back|last song|last track|play previous|previous one)[!.?]?$/i.test(t)){
     if(!spotifyConnected) return null;
     try{await fetch('/api/spotify/control?action=previous',{credentials:'include',method:'POST'}); return 'Back one, sir.'}
     catch(_){return null}
   }
-  // Volume up/down
-  const volM=t.match(/^(?:set )?volume(?: to)? (\d+)/i);
+  // Volume — must be standalone
+  const volM=t.match(/^(?:set |turn )?volume(?: to | at )? ?(\d+)[!.?]?$/i);
   if(volM&&spotifyConnected){
     const v=parseInt(volM[1]);
     try{await fetch('/api/spotify/control?action=volume&level='+v,{credentials:'include',method:'POST'}); return `Volume at ${v} percent, sir.`}
     catch(_){return null}
   }
-  // Resume
-  if(/^(resume|continue|play (it|music)|unpause)$/i.test(t)&&spotifyConnected){
+  // Resume — must be standalone
+  if(/^(resume|continue|unpause|keep playing|play it again)[!.?]?$/i.test(t)&&spotifyConnected){
     try{await fetch('/api/spotify/play',{credentials:'include',method:'POST'}); return 'Resuming, sir.'}
     catch(_){return null}
   }
   // Play [song] — real Spotify playback (not search URL)
   const playM=t.match(/^(?:please )?play (.+?)(?:\s+on spotify)?\s*[.?!]?$/i);
-  if(playM&&spotifyConnected){
+  if(playM){
+    if(/youtube/i.test(text)) return null;  // falls through to YouTube launcher
+    if(!spotifyConnected){
+      // Recheck before giving up — Spotify status might be stale
+      try{
+        const r=await fetch('/api/spotify/status',{credentials:'include'});
+        const d=await r.json();
+        spotifyConnected=!!d.connected;
+        updateSpotifyHud&&updateSpotifyHud();
+      }catch(_){}
+      if(!spotifyConnected) return 'Spotify is not connected, sir. Please click the Spotify button at the top right to reconnect.';
+    }
     const q=playM[1].trim();
-    // Skip "youtube" specific requests — they fall through to launcher
-    if(/youtube/i.test(text)) return null;
     try{
       const r=await fetch('/api/spotify/play?q='+encodeURIComponent(q),{credentials:'include',method:'POST'});
       const d=await r.json().catch(()=>({}));
@@ -1164,8 +1173,8 @@ function tryLaunch(text){
   // "play X on spotify"
   const ps=t.match(/play (.+?) on spotify\s*[.?!]?$/i);
   if(ps) return {url:'https://open.spotify.com/search/'+encodeURIComponent(ps[1]),name:ps[1]+' on Spotify',play:true,music:true};
-  // "play X" / "play X on youtube"
-  const p=t.match(/play (.+?)(?: on youtube)?\s*[.?!]?$/i);
+  // "play X on youtube" — ONLY explicit YouTube request
+  const p=t.match(/play (.+?)\s+on\s+youtube\s*[.?!]?$/i);
   if(p) return {url:'https://youtube.com/results?search_query='+encodeURIComponent(p[1]),name:p[1],play:true};
   // "email X" → opens gmail compose
   const e=t.match(/(?:email|send (?:an? )?email to|write (?:an? )?email to) (.+?)\s*[.?!]?$/i);
@@ -1705,6 +1714,7 @@ checkGoogleStatus().then(()=>{
     setTimeout(()=>checkGoogleStatus(), 800);
   }
 });
+
 checkSpotifyStatus().then(()=>{
   if(new URLSearchParams(location.search).get('spotify')==='1'){
     addMsg('jarvis','Spotify connected, sir. Music control is live.');
@@ -1716,7 +1726,7 @@ checkSpotifyStatus().then(()=>{
   if(sb&&spotifyConnected){sb.textContent='SPOTIFY: ON'; sb.style.color='#4ADE80'}
 });
 setInterval(checkGoogleStatus, 5*60*1000);
-setInterval(checkSpotifyStatus, 5*60*1000);
+setInterval(checkSpotifyStatus, 2*60*1000);
 </script>
 </body>
 </html>
